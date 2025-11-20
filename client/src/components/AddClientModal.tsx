@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,72 +11,183 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Plus } from "lucide-react";
-import { useClients } from "@/hooks/useClients";
+import { Plus, Trash2 } from "lucide-react";
+import { useClients, ClientProduct } from "@/hooks/useClients";
 import { useProducts } from "@/hooks/useProducts";
 import { useToast } from "@/hooks/use-toast";
+import { ProductMultiSelect } from "@/components/ProductMultiSelect";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+
+interface SelectedProduct {
+  productId: string;
+  name: string;
+  quantity: number;
+  monthlyFee: number;
+  stock: number;
+  sellingPrice: number;
+}
 
 export function AddClientModal() {
   const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    client_name: "",
-    product_quantity: "",
-    total_sold_amount: "",
-    monthly_fee: "",
-    product_id: "",
-  });
-  const { products } = useProducts();
+  const [clientName, setClientName] = useState("");
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [productDetails, setProductDetails] = useState<Record<string, SelectedProduct>>({});
+  const [starterPackPrice, setStarterPackPrice] = useState("");
+  const [hardwarePrice, setHardwarePrice] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const { products, updateProduct } = useProducts();
   const { createClient } = useClients();
   const { toast } = useToast();
 
+  // Calculate totals from selected products
+  const { totalSoldAmount, totalMonthlyFee, totalProductQuantity } = useMemo(() => {
+    let sold = 0;
+    let fee = 0;
+    let qty = 0;
+
+    Object.values(productDetails).forEach((detail) => {
+      sold += detail.sellingPrice * detail.quantity;
+      fee += detail.monthlyFee;
+      qty += detail.quantity;
+    });
+
+    return {
+      totalSoldAmount: sold,
+      totalMonthlyFee: fee,
+      totalProductQuantity: qty,
+    };
+  }, [productDetails]);
+
   // Calculate months_left automatically
-  const monthsLeft = (() => {
-    const totalSold = parseFloat(formData.total_sold_amount) || 0;
-    const monthlyFee = parseFloat(formData.monthly_fee) || 0;
-    if (monthlyFee > 0) {
-      return Math.ceil(totalSold / monthlyFee);
+  const monthsLeft = useMemo(() => {
+    if (totalMonthlyFee > 0) {
+      return Math.ceil(totalSoldAmount / totalMonthlyFee);
     }
     return 0;
-  })();
+  }, [totalSoldAmount, totalMonthlyFee]);
+
+  // Handle product selection
+  const handleProductSelectionChange = (productIds: string[]) => {
+    setSelectedProductIds(productIds);
+
+    // Initialize product details for newly selected products
+    const newDetails: Record<string, SelectedProduct> = { ...productDetails };
+    
+    productIds.forEach((productId) => {
+      if (!newDetails[productId]) {
+        const product = products.find((p) => p.id === productId);
+        if (product) {
+          newDetails[productId] = {
+            productId: product.id,
+            name: product.name,
+            quantity: 1,
+            monthlyFee: 0,
+            stock: product.quantity,
+            sellingPrice: product.selling_price,
+          };
+        }
+      }
+    });
+
+    // Remove details for unselected products
+    Object.keys(newDetails).forEach((productId) => {
+      if (!productIds.includes(productId)) {
+        delete newDetails[productId];
+      }
+    });
+
+    setProductDetails(newDetails);
+    
+    // Clear errors when selection changes
+    setErrors({});
+  };
+
+  // Update product quantity
+  const handleQuantityChange = (productId: string, quantity: number) => {
+    const detail = productDetails[productId];
+    if (!detail) return;
+
+    const newDetails = {
+      ...productDetails,
+      [productId]: {
+        ...detail,
+        quantity: Math.max(1, Math.floor(quantity)),
+      },
+    };
+
+    setProductDetails(newDetails);
+    
+    // Clear error for this product
+    if (errors[`quantity_${productId}`]) {
+      const newErrors = { ...errors };
+      delete newErrors[`quantity_${productId}`];
+      setErrors(newErrors);
+    }
+  };
+
+  // Update product monthly fee
+  const handleMonthlyFeeChange = (productId: string, monthlyFee: number) => {
+    const detail = productDetails[productId];
+    if (!detail) return;
+
+    setProductDetails({
+      ...productDetails,
+      [productId]: {
+        ...detail,
+        monthlyFee: Math.max(0, monthlyFee),
+      },
+    });
+  };
+
+  // Remove product
+  const handleRemoveProduct = (productId: string) => {
+    const newIds = selectedProductIds.filter((id) => id !== productId);
+    setSelectedProductIds(newIds);
+    
+    const newDetails = { ...productDetails };
+    delete newDetails[productId];
+    setProductDetails(newDetails);
+
+    // Clear errors for this product
+    const newErrors = { ...errors };
+    Object.keys(newErrors).forEach((key) => {
+      if (key.startsWith(`${productId}_`)) {
+        delete newErrors[key];
+      }
+    });
+    setErrors(newErrors);
+  };
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.client_name.trim()) {
+    if (!clientName.trim()) {
       newErrors.client_name = "Le nom du client est requis";
     }
 
-    const productQty = parseInt(formData.product_quantity, 10);
-    if (!formData.product_quantity || isNaN(productQty) || productQty < 1) {
-      newErrors.product_quantity = "La quantité de produits doit être supérieure ou égale à 1";
+    if (selectedProductIds.length === 0) {
+      newErrors.products = "Veuillez sélectionner au moins un produit";
     }
 
-    const totalSold = parseFloat(formData.total_sold_amount);
-    if (!formData.total_sold_amount || isNaN(totalSold) || totalSold < 0) {
-      newErrors.total_sold_amount = "Le montant total vendu doit être un nombre positif";
-    }
+    // Validate each product's quantity against stock
+    Object.values(productDetails).forEach((detail) => {
+      if (detail.quantity > detail.stock) {
+        newErrors[`quantity_${detail.productId}`] = `La quantité (${detail.quantity}) ne peut pas dépasser le stock disponible (${detail.stock})`;
+      }
+      if (detail.quantity < 1) {
+        newErrors[`quantity_${detail.productId}`] = "La quantité doit être au moins 1";
+      }
+    });
 
-    const monthlyFee = parseFloat(formData.monthly_fee);
-    if (!formData.monthly_fee || isNaN(monthlyFee) || monthlyFee <= 0) {
-      newErrors.monthly_fee = "Les frais mensuels doivent être supérieurs à 0";
-    }
-
-    // Validation: total_sold_amount must be >= monthly_fee
-    if (totalSold > 0 && monthlyFee > 0 && totalSold < monthlyFee) {
-      newErrors.total_sold_amount = "Le montant total vendu doit être supérieur ou égal aux frais mensuels";
+    // Validation: total_sold_amount must be >= totalMonthlyFee
+    if (totalSoldAmount > 0 && totalMonthlyFee > 0 && totalSoldAmount < totalMonthlyFee) {
+      newErrors.total_sold_amount = "Le montant total vendu doit être supérieur ou égal aux frais mensuels totaux";
     }
 
     // Validation: months_left must be >= 1
-    if (monthsLeft < 1) {
+    if (totalMonthlyFee > 0 && monthsLeft < 1) {
       newErrors.months_left = "Le nombre de mois restants doit être supérieur ou égal à 1";
     }
 
@@ -93,28 +204,53 @@ export function AddClientModal() {
 
     setIsSaving(true);
     try {
+      // Prepare products array for client
+      const clientProducts: ClientProduct[] = Object.values(productDetails).map((detail) => ({
+        productId: detail.productId,
+        name: detail.name,
+        quantity: detail.quantity,
+        monthlyFee: detail.monthlyFee,
+      }));
+
+      // Create client
       await createClient({
-        client_name: formData.client_name.trim(),
-        product_quantity: parseInt(formData.product_quantity, 10),
-        total_sold_amount: parseFloat(formData.total_sold_amount),
-        monthly_fee: parseFloat(formData.monthly_fee),
+        client_name: clientName.trim(),
+        product_quantity: totalProductQuantity,
+        total_sold_amount: totalSoldAmount,
+        monthly_fee: totalMonthlyFee,
         months_left: monthsLeft,
-        product_id: formData.product_id || undefined,
+        products: clientProducts,
+        starter_pack_price: starterPackPrice ? parseFloat(starterPackPrice) : undefined,
+        hardware_price: hardwarePrice ? parseFloat(hardwarePrice) : undefined,
       });
+
+      // Update stock for each product
+      for (const detail of Object.values(productDetails)) {
+        const product = products.find((p) => p.id === detail.productId);
+        if (product) {
+          const newQuantity = product.quantity - detail.quantity;
+          const newTotalValue = newQuantity * product.purchase_price;
+          
+          await updateProduct({
+            ...product,
+            quantity: newQuantity,
+            total_value: newTotalValue,
+          });
+        }
+      }
       
+      // Reset form
       setOpen(false);
-      setFormData({
-        client_name: "",
-        product_quantity: "",
-        total_sold_amount: "",
-        monthly_fee: "",
-        product_id: "",
-      });
+      setClientName("");
+      setSelectedProductIds([]);
+      setProductDetails({});
+      setStarterPackPrice("");
+      setHardwarePrice("");
       setErrors({});
       
       toast({
-        title: "Client added successfully!",
-        description: "Le client a été ajouté à la base de données.",
+        title: "Client ajouté avec succès!",
+        description: "Le client a été ajouté et les stocks ont été mis à jour.",
       });
     } catch (error: any) {
       console.error("Error creating client:", error);
@@ -129,28 +265,35 @@ export function AddClientModal() {
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData({ ...formData, [field]: value });
-    // Clear error for this field when user starts typing
-    if (errors[field]) {
-      setErrors({ ...errors, [field]: "" });
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) {
+      // Reset form when closing
+      setClientName("");
+      setSelectedProductIds([]);
+      setProductDetails({});
+      setStarterPackPrice("");
+      setHardwarePrice("");
+      setErrors({});
     }
   };
 
+  const selectedProducts = products.filter((p) => selectedProductIds.includes(p.id));
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button data-testid="button-add-client">
           <Plus className="w-4 h-4 mr-2" />
           Nouveau Client
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Ajouter un nouveau client</DialogTitle>
             <DialogDescription>
-              Remplissez les informations du nouveau client à ajouter.
+              Sélectionnez les produits et remplissez les informations du nouveau client.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -159,8 +302,8 @@ export function AddClientModal() {
               <Input
                 id="client_name"
                 placeholder="Nom du client"
-                value={formData.client_name}
-                onChange={(e) => handleInputChange("client_name", e.target.value)}
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
                 data-testid="input-client-name"
                 required
               />
@@ -170,20 +313,94 @@ export function AddClientModal() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="product_quantity">Quantité de Produits</Label>
-              <Input
-                id="product_quantity"
-                type="number"
-                placeholder="0"
-                value={formData.product_quantity}
-                onChange={(e) => handleInputChange("product_quantity", e.target.value)}
-                data-testid="input-product-quantity"
-                required
+              <Label>Produits</Label>
+              <ProductMultiSelect
+                products={products}
+                selectedProductIds={selectedProductIds}
+                onSelectionChange={handleProductSelectionChange}
+                disabled={isSaving}
               />
-              {errors.product_quantity && (
-                <p className="text-sm text-destructive">{errors.product_quantity}</p>
+              {errors.products && (
+                <p className="text-sm text-destructive">{errors.products}</p>
               )}
             </div>
+
+            {selectedProducts.length > 0 && (
+              <div className="space-y-3">
+                <Label>Détails des produits sélectionnés</Label>
+                {selectedProducts.map((product) => {
+                  const detail = productDetails[product.id];
+                  if (!detail) return null;
+
+                  return (
+                    <Card key={product.id}>
+                      <CardContent className="pt-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h4 className="font-medium">{detail.name}</h4>
+                            <p className="text-xs text-muted-foreground">
+                              Stock: {detail.stock} • Prix: {detail.sellingPrice.toFixed(2)}€
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveProduct(product.id)}
+                            disabled={isSaving}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <Separator className="mb-3" />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label htmlFor={`quantity_${product.id}`} className="text-xs">
+                              Quantité
+                            </Label>
+                            <Input
+                              id={`quantity_${product.id}`}
+                              type="number"
+                              min="1"
+                              max={detail.stock}
+                              value={detail.quantity}
+                              onChange={(e) =>
+                                handleQuantityChange(product.id, parseInt(e.target.value, 10) || 1)
+                              }
+                              disabled={isSaving}
+                            />
+                            {errors[`quantity_${product.id}`] && (
+                              <p className="text-xs text-destructive">
+                                {errors[`quantity_${product.id}`]}
+                              </p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`fee_${product.id}`} className="text-xs">
+                              Frais Mensuels (€)
+                            </Label>
+                            <Input
+                              id={`fee_${product.id}`}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={detail.monthlyFee}
+                              onChange={(e) =>
+                                handleMonthlyFeeChange(product.id, parseFloat(e.target.value) || 0)
+                              }
+                              disabled={isSaving}
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            <Separator />
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -192,30 +409,68 @@ export function AddClientModal() {
                   id="total_sold_amount"
                   type="number"
                   step="0.01"
-                  placeholder="0.00"
-                  value={formData.total_sold_amount}
-                  onChange={(e) => handleInputChange("total_sold_amount", e.target.value)}
+                  value={totalSoldAmount.toFixed(2)}
+                  disabled
+                  className="bg-muted"
                   data-testid="input-total-sold"
-                  required
                 />
+                <p className="text-xs text-muted-foreground">
+                  Calculé automatiquement
+                </p>
                 {errors.total_sold_amount && (
                   <p className="text-sm text-destructive">{errors.total_sold_amount}</p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="monthly_fee">Frais Mensuels (€)</Label>
+                <Label htmlFor="monthly_fee">Frais Mensuels Totaux (€)</Label>
                 <Input
                   id="monthly_fee"
                   type="number"
                   step="0.01"
-                  placeholder="0.00"
-                  value={formData.monthly_fee}
-                  onChange={(e) => handleInputChange("monthly_fee", e.target.value)}
+                  value={totalMonthlyFee.toFixed(2)}
+                  disabled
+                  className="bg-muted"
                   data-testid="input-monthly-fee"
-                  required
                 />
-                {errors.monthly_fee && (
-                  <p className="text-sm text-destructive">{errors.monthly_fee}</p>
+                <p className="text-xs text-muted-foreground">
+                  Somme des frais mensuels
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="starter_pack_price">Starter Pack Price (€)</Label>
+                <Input
+                  id="starter_pack_price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={starterPackPrice}
+                  onChange={(e) => setStarterPackPrice(e.target.value)}
+                  disabled={isSaving}
+                  data-testid="input-starter-pack-price"
+                />
+                {errors.starter_pack_price && (
+                  <p className="text-sm text-destructive">{errors.starter_pack_price}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="hardware_price">Hardware Price (€)</Label>
+                <Input
+                  id="hardware_price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={hardwarePrice}
+                  onChange={(e) => setHardwarePrice(e.target.value)}
+                  disabled={isSaving}
+                  data-testid="input-hardware-price"
+                />
+                {errors.hardware_price && (
+                  <p className="text-sm text-destructive">{errors.hardware_price}</p>
                 )}
               </div>
             </div>
@@ -237,54 +492,12 @@ export function AddClientModal() {
                 <p className="text-sm text-destructive">{errors.months_left}</p>
               )}
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="product_id">Produit (optionnel)</Label>
-              <Select
-                value={formData.product_id || undefined}
-                onValueChange={(value) => handleInputChange("product_id", value)}
-              >
-                <SelectTrigger id="product_id" data-testid="input-product-id">
-                  <SelectValue placeholder="Sélectionner un produit (optionnel)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.length === 0 ? (
-                    <SelectItem value="no-products" disabled>
-                      Aucun produit disponible
-                    </SelectItem>
-                  ) : (
-                    products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name} ({product.code})
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              {formData.product_id && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs"
-                  onClick={() => handleInputChange("product_id", "")}
-                >
-                  Effacer la sélection
-                </Button>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Lier ce client à un produit pour les analyses par catégorie
-              </p>
-            </div>
           </div>
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                setOpen(false);
-                setErrors({});
-              }}
+              onClick={() => handleOpenChange(false)}
               data-testid="button-cancel"
               disabled={isSaving}
             >
@@ -299,4 +512,3 @@ export function AddClientModal() {
     </Dialog>
   );
 }
-
