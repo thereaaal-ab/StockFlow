@@ -2,6 +2,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useEffect } from "react";
 
+export interface ClientProduct {
+  productId: string;
+  name: string;
+  quantity: number;
+  monthlyFee: number;
+}
+
 export interface Client {
   id: string;
   client_name: string;
@@ -10,12 +17,28 @@ export interface Client {
   product_quantity: number;
   months_left: number;
   product_id?: string;
+  products?: ClientProduct[];
+  starter_pack_price?: number;
+  hardware_price?: number;
   created_at?: string;
   updated_at?: string;
 }
 
 // Convert Supabase client to our Client type
 function mapClient(client: any): Client {
+  // Parse products JSONB column
+  let products: ClientProduct[] = [];
+  if (client.products) {
+    try {
+      products = Array.isArray(client.products) 
+        ? client.products 
+        : JSON.parse(client.products);
+    } catch (e) {
+      console.error("Error parsing products:", e);
+      products = [];
+    }
+  }
+
   return {
     id: client.id,
     client_name: client.client_name,
@@ -24,6 +47,9 @@ function mapClient(client: any): Client {
     product_quantity: parseInt(client.product_quantity || "0", 10),
     months_left: parseInt(client.months_left || "0", 10),
     product_id: client.product_id || undefined,
+    products: products.length > 0 ? products : undefined,
+    starter_pack_price: client.starter_pack_price ? parseFloat(client.starter_pack_price) : undefined,
+    hardware_price: client.hardware_price ? parseFloat(client.hardware_price) : undefined,
     created_at: client.created_at,
     updated_at: client.updated_at,
   };
@@ -56,6 +82,19 @@ async function createClient(client: Omit<Client, "id" | "created_at" | "updated_
   // Only include product_id if provided
   if (client.product_id) {
     insertData.product_id = client.product_id;
+  }
+
+  // Include products array if provided
+  if (client.products && client.products.length > 0) {
+    insertData.products = client.products;
+  }
+
+  // Include starter_pack_price and hardware_price if provided (only on create)
+  if (client.starter_pack_price !== undefined) {
+    insertData.starter_pack_price = client.starter_pack_price;
+  }
+  if (client.hardware_price !== undefined) {
+    insertData.hardware_price = client.hardware_price;
   }
 
   console.log("Inserting client data:", insertData);
@@ -99,6 +138,14 @@ async function updateClient(
     // If product_id is explicitly undefined, set it to null
     updateData.product_id = null;
   }
+
+  // Include products array if provided
+  if (client.products !== undefined) {
+    updateData.products = client.products.length > 0 ? client.products : [];
+  }
+
+  // Note: We don't set updated_at here - let the database trigger handle it
+  // This avoids Supabase schema cache issues
 
   const { data, error } = await supabase
     .from("clients")

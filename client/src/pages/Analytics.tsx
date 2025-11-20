@@ -10,6 +10,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useDashboardCounts } from "@/hooks/useDashboardCounts";
 import { useProducts } from "@/hooks/useProducts";
 import { useClients } from "@/hooks/useClients";
@@ -128,6 +136,35 @@ export default function Analytics() {
   // Monthly trend - empty for now, can be enhanced with actual historical data
   const monthlyTrend: Array<{ name: string; value: number }> = [];
 
+  // Calculate revenue per client
+  const clientRevenueData = useMemo(() => {
+    return clients.map((client) => {
+      const monthlyFee = client.monthly_fee || 0;
+      const monthlyRevenue = monthlyFee; // Same as monthly fee
+      const yearlyRevenue = monthlyFee * 12;
+      
+      return {
+        clientName: client.client_name,
+        monthlyFee,
+        monthlyRevenue,
+        yearlyRevenue,
+      };
+    });
+  }, [clients]);
+
+  // Calculate total revenue
+  const totalRevenue = useMemo(() => {
+    const totalMonthlyRevenue = clients.reduce((sum, client) => {
+      return sum + (client.monthly_fee || 0);
+    }, 0);
+    const totalYearlyRevenue = totalMonthlyRevenue * 12;
+    
+    return {
+      totalMonthlyRevenue,
+      totalYearlyRevenue,
+    };
+  }, [clients]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -182,6 +219,22 @@ export default function Analytics() {
           value={countsLoading ? "..." : formatCurrencyCompact(counts.totalValue)}
           icon={Euro}
           testId="card-deployed-value"
+        />
+      </div>
+
+      {/* Revenue Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <StatCard
+          title="Revenu Mensuel Total"
+          value={clientsLoading ? "..." : formatCurrencyCompact(totalRevenue.totalMonthlyRevenue)}
+          icon={Euro}
+          testId="card-total-monthly-revenue"
+        />
+        <StatCard
+          title="Revenu Annuel Total"
+          value={clientsLoading ? "..." : formatCurrencyCompact(totalRevenue.totalYearlyRevenue)}
+          icon={Euro}
+          testId="card-total-yearly-revenue"
         />
       </div>
 
@@ -329,6 +382,53 @@ export default function Analytics() {
                   </div>
                 </div>
               ))}
+          </CardContent>
+        </Card>
+
+        {/* Client Revenue Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Revenus par Client</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {clientsLoading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Chargement...
+              </div>
+            ) : clientRevenueData.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Aucun client disponible
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nom du Client</TableHead>
+                      <TableHead className="text-right">Frais Mensuels</TableHead>
+                      <TableHead className="text-right">Revenu Mensuel</TableHead>
+                      <TableHead className="text-right">Revenu Annuel</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {clientRevenueData.map((client, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{client.clientName}</TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrencyFull(client.monthlyFee)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrencyFull(client.monthlyRevenue)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrencyFull(client.yearlyRevenue)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
