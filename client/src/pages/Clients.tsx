@@ -1,21 +1,43 @@
 import { ClientCard } from "@/components/ClientCard";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { AddClientModal } from "@/components/AddClientModal";
+import { ClientDetailsModal } from "@/components/ClientDetailsModal";
+import { EditClientModal } from "@/components/EditClientModal";
 import { useState } from "react";
+import { useClients, Client } from "@/hooks/useClients";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Clients() {
-  const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const { clients, isLoading, deleteClient, isDeleting } = useClients();
+  const { toast } = useToast();
 
-  const clients = [
-    { name: "SameSame", hardwareCount: 8, totalValue: 12500 },
-    { name: "O'Comptoir", hardwareCount: 5, totalValue: 8200 },
-    { name: "CuzCup", hardwareCount: 12, totalValue: 18900 },
-    { name: "GameSame", hardwareCount: 3, totalValue: 6700 },
-  ];
+  const handleViewDetails = (client: Client) => {
+    setSelectedClient(client);
+    setShowDetailsModal(true);
+  };
 
-  const handleViewDetails = (clientName: string) => {
-    console.log("View details for:", clientName);
-    setSelectedClient(clientName);
+  const handleEdit = (client: Client) => {
+    setSelectedClient(client);
+    setShowEditModal(true);
+  };
+
+  const handleDelete = async (client: Client) => {
+    try {
+      await deleteClient(client.id);
+      toast({
+        title: "Client supprimé",
+        description: `Le client "${client.client_name}" a été supprimé avec succès.`,
+      });
+    } catch (error: any) {
+      console.error("Error deleting client:", error);
+      toast({
+        title: "Erreur",
+        description: error?.message || "Erreur lors de la suppression du client.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -29,27 +51,53 @@ export default function Clients() {
             Gestion des clients et de leur matériel assigné
           </p>
         </div>
-        <Button data-testid="button-add-client">
-          <Plus className="w-4 h-4 mr-2" />
-          Nouveau Client
-        </Button>
+        <AddClientModal />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {clients.map((client) => (
-          <ClientCard
-            key={client.name}
-            name={client.name}
-            hardwareCount={client.hardwareCount}
-            totalValue={client.totalValue}
-            onViewDetails={() => handleViewDetails(client.name)}
-          />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="text-center py-8 text-muted-foreground">
+          Chargement des clients...
+        </div>
+      ) : clients.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          Aucun client enregistré
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {clients.map((client) => (
+              <ClientCard
+                key={client.id}
+                name={client.client_name}
+                totalSoldAmount={client.total_sold_amount}
+                monthlyFee={client.monthly_fee}
+                productQuantity={client.product_quantity}
+                monthsLeft={client.months_left}
+                onViewDetails={() => handleViewDetails(client)}
+                onEdit={() => handleEdit(client)}
+                onDelete={() => handleDelete(client)}
+                isDeleting={isDeleting}
+              />
+            ))}
+          </div>
 
-      <div className="text-sm text-muted-foreground">
-        Total: {clients.length} clients actifs
-      </div>
+          <div className="text-sm text-muted-foreground">
+            Total: {clients.length} clients actifs
+          </div>
+        </>
+      )}
+
+      <ClientDetailsModal
+        open={showDetailsModal}
+        onOpenChange={setShowDetailsModal}
+        client={selectedClient}
+      />
+
+      <EditClientModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        client={selectedClient}
+      />
     </div>
   );
 }

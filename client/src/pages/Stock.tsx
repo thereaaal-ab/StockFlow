@@ -1,8 +1,9 @@
 import { HardwareTable } from "@/components/HardwareTable";
+import { EditProductModal } from "@/components/EditProductModal";
 import { Input } from "@/components/ui/input";
 import { Search, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Select,
   SelectContent,
@@ -10,97 +11,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useProducts, Product } from "@/hooks/useProducts";
 
 export default function Stock() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  const stockData = [
-    {
-      code: "AKSP-21",
-      name: "Kiosk 21.5",
-      quantity: 0,
-      buyPrice: 500,
-      sellPrice: 1699.99,
-      netValue: 1199.99,
-      totalValue: 0,
-    },
-    {
-      code: "AKSP-27",
-      name: "Kiosk 27",
-      quantity: 2,
-      buyPrice: 680,
-      sellPrice: 2100,
-      netValue: 1420,
-      totalValue: 4200,
-    },
-    {
-      code: "AKSP-32",
-      name: "Kiosk 32",
-      quantity: 0,
-      buyPrice: 800,
-      sellPrice: 2799.99,
-      netValue: 1999.99,
-      totalValue: 0,
-    },
-    {
-      code: "PW-02",
-      name: "Imprimante",
-      quantity: 0,
-      buyPrice: 80,
-      sellPrice: 179.88,
-      netValue: 99.88,
-      totalValue: 0,
-    },
-    {
-      code: "AT-11",
-      name: "Tablette 11 pouces",
-      quantity: 0,
-      buyPrice: 135,
-      sellPrice: 249.99,
-      netValue: 114.99,
-      totalValue: 0,
-    },
-    {
-      code: "BFSK-01",
-      name: "Télécommande Biper",
-      quantity: 0,
-      buyPrice: 19,
-      sellPrice: 24.99,
-      netValue: 5.99,
-      totalValue: 0,
-    },
-    {
-      code: "BFSK-02",
-      name: "Base de charge Biper",
-      quantity: 0,
-      buyPrice: 10,
-      sellPrice: 19.99,
-      netValue: 9.99,
-      totalValue: 0,
-    },
-    {
-      code: "BFSK-03",
-      name: "Biper FSK",
-      quantity: 0,
-      buyPrice: 3,
-      sellPrice: 8.09,
-      netValue: 5.09,
-      totalValue: 0,
-    },
-    {
-      code: "SN-1",
-      name: "SNIIP Licence",
-      quantity: 0,
-      buyPrice: 0,
-      sellPrice: 79.99,
-      netValue: 79.99,
-      totalValue: 0,
-    },
-  ];
+  const { products, isLoading, updateProduct, deleteProduct } = useProducts();
 
-  const getFilteredData = () => {
-    let filtered = stockData.filter(
+  const filteredData = useMemo(() => {
+    let filtered = products.filter(
       (item) =>
         item.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -115,9 +37,24 @@ export default function Stock() {
     }
 
     return filtered;
+  }, [products, searchTerm, statusFilter]);
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setIsEditModalOpen(true);
   };
 
-  const filteredData = getFilteredData();
+  const handleSave = async (product: Product) => {
+    await updateProduct(product);
+  };
+
+  const handleDelete = async (productId: string) => {
+    await deleteProduct(productId);
+  };
+
+  const availableStockValue = filteredData
+    .filter((item) => item.quantity > 0)
+    .reduce((sum, item) => sum + item.total_value, 0);
 
   return (
     <div className="space-y-6">
@@ -160,15 +97,41 @@ export default function Stock() {
         </Select>
       </div>
 
-      <HardwareTable data={filteredData} showStock={true} showActions={false} />
-
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <div>Total: {filteredData.length} produits</div>
-        <div>
-          Valeur stock disponible:{" "}
-          <span className="font-semibold text-foreground">2,840.00 €</span>
+      {isLoading ? (
+        <div className="text-center py-8 text-muted-foreground">
+          Chargement des produits...
         </div>
-      </div>
+      ) : (
+        <>
+          <HardwareTable
+            data={filteredData}
+            showStock={true}
+            showActions={true}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
+
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div>Total: {filteredData.length} produits</div>
+            <div>
+              Valeur stock disponible:{" "}
+              <span className="font-semibold text-foreground">
+                {new Intl.NumberFormat("fr-FR", {
+                  style: "currency",
+                  currency: "EUR",
+                }).format(availableStockValue)}
+              </span>
+            </div>
+          </div>
+        </>
+      )}
+
+      <EditProductModal
+        open={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        product={editingProduct}
+        onSave={handleSave}
+      />
     </div>
   );
 }
