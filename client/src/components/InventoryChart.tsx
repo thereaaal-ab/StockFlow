@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { formatChartValue, formatCurrencyCompact } from "@/lib/utils";
 
 interface ChartData {
   name: string;
@@ -36,6 +37,7 @@ export function InventoryChart({
             <YAxis 
               className="text-xs"
               tick={{ fill: "hsl(var(--muted-foreground))" }}
+              tickFormatter={(value) => formatChartValue(value)}
             />
             <Tooltip 
               contentStyle={{
@@ -44,6 +46,7 @@ export function InventoryChart({
                 borderRadius: "var(--radius)",
               }}
               labelStyle={{ color: "hsl(var(--popover-foreground))" }}
+              formatter={(value: number) => formatCurrencyCompact(value)}
             />
             <Legend />
             <Bar dataKey={dataKey} fill={color} radius={[4, 4, 0, 0]} />

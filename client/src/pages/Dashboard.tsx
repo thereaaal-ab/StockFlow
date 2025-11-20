@@ -1,6 +1,7 @@
 import { StatCard } from "@/components/StatCard";
 import { InventoryChart } from "@/components/InventoryChart";
 import { Package, Warehouse, Users, Euro } from "lucide-react";
+import { formatCurrencyCompact } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -10,38 +11,34 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useDashboardCounts } from "@/hooks/useDashboardCounts";
+import { useProducts } from "@/hooks/useProducts";
+import { useClients } from "@/hooks/useClients";
+import { useMemo } from "react";
 
 export default function Dashboard() {
-  const clientData = [
-    { name: "SameSame", value: 12500 },
-    { name: "O'Comptoir", value: 8200 },
-    { name: "CuzCup", value: 18900 },
-    { name: "GameSame", value: 6700 },
-  ];
+  const { counts, isLoading: countsLoading } = useDashboardCounts();
+  const { products, isLoading: productsLoading } = useProducts();
+  const { clients, isLoading: clientsLoading } = useClients();
 
-  const recentMovements = [
-    {
-      date: "2025-01-11",
-      type: "Achat",
-      product: "Kiosk 27",
-      quantity: 3,
-      client: "-",
-    },
-    {
-      date: "2025-01-10",
-      type: "Attribution",
-      product: "Tablette 11 pouces",
-      quantity: 2,
-      client: "SameSame",
-    },
-    {
-      date: "2025-01-09",
-      type: "Retour",
-      product: "Biper FSK",
-      quantity: 1,
-      client: "CuzCup",
-    },
-  ];
+  // Calculate client data from real products and clients
+  const clientData = useMemo(() => {
+    // Use total_sold_amount as the value for the chart
+    return clients.map((client) => ({
+      name: client.client_name,
+      value: client.total_sold_amount,
+    }));
+  }, [clients]);
+
+  // Recent movements - empty for now, can be enhanced with actual movement tracking
+  const recentMovements: Array<{
+    date: string;
+    type: string;
+    product: string;
+    quantity: number;
+    client: string;
+  }> = [];
+
 
   return (
     <div className="space-y-6">
@@ -57,29 +54,26 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Matériel"
-          value="142"
+          value={countsLoading ? "..." : counts.productCount.toString()}
           icon={Package}
-          trend={{ value: "+12%", isPositive: true }}
           testId="card-total-hardware"
         />
         <StatCard
           title="Stock Disponible"
-          value="45"
+          value={countsLoading ? "..." : counts.availableStockCount.toString()}
           icon={Warehouse}
-          trend={{ value: "-5%", isPositive: false }}
           testId="card-available-stock"
         />
         <StatCard
           title="Clients Actifs"
-          value="8"
+          value={countsLoading ? "..." : counts.clientCount.toString()}
           icon={Users}
           testId="card-active-clients"
         />
         <StatCard
           title="Valeur Totale"
-          value="46,600 €"
+          value={countsLoading ? "..." : formatCurrencyCompact(counts.totalValue)}
           icon={Euro}
-          trend={{ value: "+18%", isPositive: true }}
           testId="card-total-value"
         />
       </div>
@@ -107,15 +101,23 @@ export default function Dashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {recentMovements.map((movement, index) => (
-                    <TableRow key={index} data-testid={`row-movement-${index}`}>
-                      <TableCell className="text-sm">{movement.date}</TableCell>
-                      <TableCell className="text-sm">{movement.type}</TableCell>
-                      <TableCell className="text-sm font-medium">{movement.product}</TableCell>
-                      <TableCell className="text-right text-sm">{movement.quantity}</TableCell>
-                      <TableCell className="text-sm">{movement.client}</TableCell>
+                  {recentMovements.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                        Aucun mouvement récent
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    recentMovements.map((movement, index) => (
+                      <TableRow key={index} data-testid={`row-movement-${index}`}>
+                        <TableCell className="text-sm">{movement.date}</TableCell>
+                        <TableCell className="text-sm">{movement.type}</TableCell>
+                        <TableCell className="text-sm font-medium">{movement.product}</TableCell>
+                        <TableCell className="text-right text-sm">{movement.quantity}</TableCell>
+                        <TableCell className="text-sm">{movement.client}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
