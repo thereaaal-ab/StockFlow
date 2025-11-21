@@ -54,3 +54,35 @@ export function formatChartValue(value: number): string {
   }
   return value.toString();
 }
+
+/**
+ * Calculate the date when client will be profitable
+ * Returns the date after adding months_left to contract_start_date (or current date if no contract_start_date)
+ */
+export function calculateProfitableDate(
+  contractStartDate?: string,
+  monthsLeft?: number
+): string | null {
+  if (!monthsLeft || monthsLeft <= 0) {
+    return null;
+  }
+
+  const startDate = contractStartDate 
+    ? new Date(contractStartDate) 
+    : new Date();
+
+  if (isNaN(startDate.getTime())) {
+    return null;
+  }
+
+  // Add months_left months to the start date
+  const profitableDate = new Date(startDate);
+  profitableDate.setMonth(profitableDate.getMonth() + monthsLeft);
+
+  // Format as French date: "21 janvier 2026"
+  return profitableDate.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}

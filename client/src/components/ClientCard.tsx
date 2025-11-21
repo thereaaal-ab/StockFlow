@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Package, Euro, Calendar, Edit, Trash2 } from "lucide-react";
-import { formatCurrencyCompact } from "@/lib/utils";
+import { formatCurrencyCompact, calculateProfitableDate } from "@/lib/utils";
 import { calculateClientMetrics } from "@/lib/clientCalculations";
 import { Client } from "@/hooks/useClients";
 import { useProducts } from "@/hooks/useProducts";
@@ -62,7 +62,7 @@ export function ClientCard({
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Euro className="h-4 w-4" />
-              <span>Montant Vendu</span>
+              <span>Montant d'installation</span>
             </div>
             <p className="text-lg font-bold">{formatCurrencyCompact(client.total_sold_amount)}</p>
           </div>
@@ -85,10 +85,11 @@ export function ClientCard({
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="h-4 w-4" />
-              <span>Mois Restants</span>
+              <span>Date de Rentabilité</span>
             </div>
             <p className="text-lg font-bold text-primary">
-              {client.months_left} {client.months_left === 1 ? "mois" : "mois"}
+              {calculateProfitableDate(client.contract_start_date, client.months_left) || 
+                `${client.months_left} ${client.months_left === 1 ? "mois" : "mois"}`}
             </p>
             <p className="text-xs text-muted-foreground">(calculé automatiquement)</p>
           </div>

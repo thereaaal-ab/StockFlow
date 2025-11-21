@@ -4,7 +4,9 @@ import { formatChartValue, formatCurrencyCompact } from "@/lib/utils";
 
 interface ChartData {
   name: string;
-  value: number;
+  value?: number;
+  installation?: number;
+  collected?: number;
 }
 
 interface InventoryChartProps {
@@ -12,13 +14,15 @@ interface InventoryChartProps {
   data: ChartData[];
   dataKey?: string;
   color?: string;
+  showGroupedBars?: boolean;
 }
 
 export function InventoryChart({ 
   title, 
   data, 
   dataKey = "value",
-  color = "hsl(var(--chart-1))" 
+  color = "hsl(var(--chart-1))",
+  showGroupedBars = false
 }: InventoryChartProps) {
   return (
     <Card>
@@ -49,7 +53,24 @@ export function InventoryChart({
               formatter={(value: number) => formatCurrencyCompact(value)}
             />
             <Legend />
-            <Bar dataKey={dataKey} fill={color} radius={[4, 4, 0, 0]} />
+            {showGroupedBars ? (
+              <>
+                <Bar 
+                  dataKey="installation" 
+                  fill="hsl(var(--chart-1))" 
+                  radius={[4, 4, 0, 0]} 
+                  name="Installation"
+                />
+                <Bar 
+                  dataKey="collected" 
+                  fill="hsl(var(--chart-2))" 
+                  radius={[4, 4, 0, 0]} 
+                  name="Revenu Collecté"
+                />
+              </>
+            ) : (
+              <Bar dataKey={dataKey} fill={color} radius={[4, 4, 0, 0]} />
+            )}
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
