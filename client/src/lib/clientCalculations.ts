@@ -48,13 +48,14 @@ function isInFirstMonth(date: Date, contractStartDate: Date): boolean {
 
 /**
  * Calculate total investment for a client
- * Investment = Starter Pack (month 1 only) + Hardware purchase price (month 1 or when added)
+ * Investment = Starter Pack (month 1 only) + Hardware Price (manually entered)
  * Monthly fee is NOT investment
  */
 export function calculateTotalInvestment(
   client: {
     contract_start_date?: string;
     starter_pack_price?: number;
+    hardware_price?: number;
     products?: ClientProduct[];
   },
   allProducts: Product[] = []
@@ -69,28 +70,10 @@ export function calculateTotalInvestment(
     investment += client.starter_pack_price || 0;
   }
 
-  // Hardware purchase price is included ONLY in month 1 (or the month when hardware is added)
-  if (client.products && contractStartDate) {
-    client.products.forEach((clientProduct) => {
-      // Get product details to find purchase price
-      const product = allProducts.find((p) => p.id === clientProduct.productId);
-      if (!product) return;
-
-      const purchasePrice = product.purchase_price || 0;
-      const quantity = clientProduct.quantity || 0;
-
-      // If addedAt is provided, check if it's in month 1
-      // Otherwise, assume it was added in month 1 (for backward compatibility)
-      if (clientProduct.addedAt) {
-        const addedDate = new Date(clientProduct.addedAt);
-        if (isInFirstMonth(addedDate, contractStartDate)) {
-          investment += purchasePrice * quantity;
-        }
-      } else {
-        // Backward compatibility: assume month 1 if no addedAt
-        investment += purchasePrice * quantity;
-      }
-    });
+  // Hardware Price is the manually entered value (what we invested in hardware)
+  // This is included ONLY in month 1
+  if (contractStartDate && client.hardware_price !== undefined) {
+    investment += client.hardware_price || 0;
   }
 
   return investment;
@@ -103,25 +86,47 @@ export function calculateTotalInvestment(
  */
 export function calculateFirstMonthRevenue(
   client: {
+    contract_start_date?: string;
     starter_pack_price?: number;
     monthly_fee?: number;
     products?: ClientProduct[];
-  }
+  },
+  allProducts: Product[] = []
 ): number {
   let revenue = 0;
+  const contractStartDate = client.contract_start_date 
+    ? new Date(client.contract_start_date) 
+    : null;
 
   // Starter pack price
   revenue += client.starter_pack_price || 0;
 
-  // Sum of hardware client prices (what client pays - buy or rent)
-  if (client.products) {
+  // Sum of hardware client prices (what client pays - buy or rent) for month 1 only
+  if (client.products && contractStartDate) {
     client.products.forEach((clientProduct) => {
-      // Use clientPrice if available, otherwise calculate from type
-      if (clientProduct.clientPrice !== undefined) {
-        revenue += clientProduct.clientPrice * (clientProduct.quantity || 0);
+      // Determine if this product was added in month 1
+      let isMonth1 = true;
+      if (clientProduct.addedAt) {
+        const addedDate = new Date(clientProduct.addedAt);
+        isMonth1 = isInFirstMonth(addedDate, contractStartDate);
       }
-      // Note: If clientPrice is not stored, we'll need to calculate it from products
-      // This will be handled in calculateClientMetrics
+
+      if (isMonth1) {
+        // Use stored clientPrice if available (what client actually paid)
+        let clientPrice = clientProduct.clientPrice;
+        if (clientPrice === undefined) {
+          // Fallback: calculate from product prices
+          const product = allProducts.find((p) => p.id === clientProduct.productId);
+          if (product) {
+            clientPrice = clientProduct.type === "rent" 
+              ? (product.rent_price || 0)
+              : (product.purchase_price || 0); // Client pays purchase price when buying
+          } else {
+            clientPrice = 0;
+          }
+        }
+        revenue += clientPrice * (clientProduct.quantity || 0);
+      }
     });
   }
 
@@ -172,10 +177,15 @@ export function calculateCumulativeRevenue(
       }
 
       if (isMonth1) {
-        // Calculate client price (buy or rent)
-        const clientPrice = clientProduct.type === "rent" 
-          ? (product.rent_price || 0)
-          : (product.purchase_price || 0); // Client pays purchase price when buying
+        // Use stored clientPrice if available (what client actually paid)
+        // Otherwise calculate from product prices
+        let clientPrice = clientProduct.clientPrice;
+        if (clientPrice === undefined) {
+          // Fallback: calculate from product prices
+          clientPrice = clientProduct.type === "rent" 
+            ? (product.rent_price || 0)
+            : (product.purchase_price || 0); // Client pays purchase price when buying
+        }
         firstMonthRevenue += clientPrice * (clientProduct.quantity || 0);
       }
     });
@@ -215,7 +225,7 @@ export function calculateClientMetrics(
   const totalInvestment = calculateTotalInvestment(client, allProducts);
 
   // Calculate first month revenue
-  const firstMonthRevenue = calculateFirstMonthRevenue(client);
+  const firstMonthRevenue = calculateFirstMonthRevenue(client, allProducts);
 
   // Calculate cumulative revenue
   const cumulativeRevenue = calculateCumulativeRevenue(client, allProducts);
