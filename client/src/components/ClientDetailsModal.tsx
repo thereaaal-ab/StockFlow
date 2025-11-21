@@ -68,7 +68,7 @@ export function ClientDetailsModal({
                       <span>Montant d'installation</span>
                     </div>
                     <p className="text-xl font-bold text-primary">
-                      {formatCurrencyFull(client.total_sold_amount)}
+                      {formatCurrencyFull(client.total_sold_amount || 0)}
                     </p>
                   </div>
 
@@ -151,6 +151,52 @@ export function ClientDetailsModal({
                         </div>
                       </div>
                       <div className="mt-4 pt-4 border-t">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Euro className="h-4 w-4" />
+                              <span>Flux de Trésorerie</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">Coûts (Négatif)</p>
+                                <p className="text-lg font-bold text-red-500">
+                                  -{formatCurrencyFull(metrics.installation_costs)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Coûts d'installation (prix d'achat)
+                                </p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">Revenus (Positif)</p>
+                                <p className="text-lg font-bold text-green-500">
+                                  +{formatCurrencyFull(metrics.total_revenue)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Revenus collectés
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="pt-2 border-t">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium">Net</span>
+                              <p className={`text-xl font-bold ${
+                                metrics.net_cash_flow >= 0 ? "text-green-500" : "text-red-500"
+                              }`}>
+                                {metrics.net_cash_flow >= 0 ? "+" : ""}
+                                {formatCurrencyFull(metrics.net_cash_flow)}
+                              </p>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {metrics.net_cash_flow >= 0 
+                                ? "Bénéfice net" 
+                                : "Perte nette"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 pt-4 border-t">
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Euro className="h-4 w-4" />
@@ -161,7 +207,7 @@ export function ClientDetailsModal({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Starter Pack: {formatCurrencyFull(client.starter_pack_price || 0)} • 
-                            Montant d'installation: {formatCurrencyFull(client.total_sold_amount || 0)}
+                            Hardware: {formatCurrencyFull(client.hardware_price || 0)}
                           </p>
                         </div>
                       </div>
@@ -169,7 +215,7 @@ export function ClientDetailsModal({
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Euro className="h-4 w-4" />
-                            <span>Profit</span>
+                            <span>Profit Mensuel</span>
                           </div>
                           <p className="text-lg font-bold text-green-500">
                             {formatCurrencyFull(client.monthly_fee || 0)}

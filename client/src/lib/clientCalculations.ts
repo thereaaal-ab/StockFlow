@@ -25,6 +25,10 @@ export interface ClientCalculationResult {
   cumulative_revenue: number;
   is_profitable: boolean;
   status: "profitable" | "covering_investment";
+  // Cash flow metrics
+  installation_costs: number; // Negative: what we spent (sum of purchase prices)
+  total_revenue: number; // Positive: what we collected
+  net_cash_flow: number; // Net: positive - negative
 }
 
 /**
@@ -47,16 +51,48 @@ function isInFirstMonth(date: Date, contractStartDate: Date): boolean {
 }
 
 /**
+ * Calculate installation costs (NEGATIVE - what we spent)
+ * Installation costs = sum of purchase prices of all hardware installed
+ * Example: Kiosk 500€ + Printer 500€ = -1000€
+ */
+export function calculateInstallationCosts(
+  client: {
+    products?: ClientProduct[];
+  },
+  allProducts: Product[] = []
+): number {
+  let costs = 0;
+  
+  if (client.products && client.products.length > 0) {
+    client.products.forEach((clientProduct) => {
+      // Use stored purchasePrice if available (what we paid)
+      let purchasePrice = clientProduct.purchasePrice;
+      if (purchasePrice === undefined) {
+        // Fallback: get from product
+        const product = allProducts.find((p) => p.id === clientProduct.productId);
+        if (product) {
+          purchasePrice = product.purchase_price || 0;
+        } else {
+          purchasePrice = 0;
+        }
+      }
+      costs += purchasePrice * (clientProduct.quantity || 0);
+    });
+  }
+  
+  return costs; // This is a positive number representing costs (will be displayed as negative)
+}
+
+/**
  * Calculate total investment for a client
- * Investment = Starter Pack (month 1 only) + Montant d'installation (sum of hardware purchase prices)
+ * Investment = Starter Pack (month 1 only) + Hardware (hardware_price)
  * Monthly fee is NOT investment
  */
 export function calculateTotalInvestment(
   client: {
     contract_start_date?: string;
     starter_pack_price?: number;
-    total_sold_amount?: number; // This is now "Montant d'installation" (sum of purchase prices)
-    hardware_price?: number; // Keep for backward compatibility, but use total_sold_amount if available
+    hardware_price?: number; // Hardware cost (what we invested in hardware)
     products?: ClientProduct[];
   },
   allProducts: Product[] = []
@@ -71,14 +107,9 @@ export function calculateTotalInvestment(
     investment += client.starter_pack_price || 0;
   }
 
-  // Montant d'installation = sum of hardware purchase prices (what we invested)
-  // Use total_sold_amount (which now stores installation amount) or hardware_price (backward compatibility)
-  // This is included ONLY in month 1
-  if (contractStartDate) {
-    const installationAmount = client.total_sold_amount !== undefined 
-      ? client.total_sold_amount 
-      : (client.hardware_price || 0);
-    investment += installationAmount;
+  // Hardware cost is included ONLY in month 1
+  if (contractStartDate && client.hardware_price !== undefined) {
+    investment += client.hardware_price || 0;
   }
 
   return investment;
@@ -123,9 +154,11 @@ export function calculateFirstMonthRevenue(
           // Fallback: calculate from product prices
           const product = allProducts.find((p) => p.id === clientProduct.productId);
           if (product) {
+            // Client pays: rent price if renting, or selling price if buying
+            // Based on user's example: "Hardware sell 400" means selling price
             clientPrice = clientProduct.type === "rent" 
               ? (product.rent_price || 0)
-              : (product.purchase_price || 0); // Client pays purchase price when buying
+              : (product.selling_price || 0);
           } else {
             clientPrice = 0;
           }
@@ -187,9 +220,11 @@ export function calculateCumulativeRevenue(
         let clientPrice = clientProduct.clientPrice;
         if (clientPrice === undefined) {
           // Fallback: calculate from product prices
+          // Client pays: rent price if renting, or selling price if buying
+          // Based on user's example: "Hardware sell 400" means selling price
           clientPrice = clientProduct.type === "rent" 
             ? (product.rent_price || 0)
-            : (product.purchase_price || 0); // Client pays purchase price when buying
+            : (product.selling_price || 0);
         }
         firstMonthRevenue += clientPrice * (clientProduct.quantity || 0);
       }
@@ -209,7 +244,7 @@ export function calculateCumulativeRevenue(
 }
 
 /**
- * Calculate all client metrics
+ * Calculate all client metrics including cash flow
  */
 export function calculateClientMetrics(
   client: Client,
@@ -235,6 +270,66 @@ export function calculateClientMetrics(
   // Calculate cumulative revenue
   const cumulativeRevenue = calculateCumulativeRevenue(client, allProducts);
 
+  // Calculate installation costs (NEGATIVE - what we spent)
+  const installationCosts = calculateInstallationCosts(client, allProducts);
+
+  // Calculate total revenue (POSITIVE - what we collected)
+  // Month 1: Starter pack + Hardware sell price + Monthly fee
+  // Month 2+: Only Monthly fee
+  let totalRevenue = 0;
+  if (contractStartDate) {
+    const starterPack = client.starter_pack_price || 0;
+    const monthlyFee = client.monthly_fee || 0;
+    
+    // Calculate hardware sell price (what client pays for hardware)
+    let hardwareSellPrice = 0;
+    if (client.products && contractStartDate) {
+      client.products.forEach((clientProduct) => {
+        // Determine if this product was added in month 1
+        let isMonth1 = true;
+        if (clientProduct.addedAt) {
+          const addedDate = new Date(clientProduct.addedAt);
+          isMonth1 = isInFirstMonth(addedDate, contractStartDate);
+        }
+
+        if (isMonth1) {
+          // Use stored clientPrice if available (what client actually paid)
+          let clientPrice = clientProduct.clientPrice;
+          if (clientPrice === undefined) {
+            const product = allProducts.find((p) => p.id === clientProduct.productId);
+            if (product) {
+              // Client pays: rent price if renting, or selling price if buying
+              // Based on user's example: "Hardware sell 400" means selling price
+              clientPrice = clientProduct.type === "rent" 
+                ? (product.rent_price || 0)
+                : (product.selling_price || 0);
+            } else {
+              clientPrice = 0;
+            }
+          }
+          hardwareSellPrice += clientPrice * (clientProduct.quantity || 0);
+        }
+      });
+    }
+    
+    // Month 1 revenue
+    const month1Revenue = starterPack + hardwareSellPrice + monthlyFee;
+    
+    // Subsequent months revenue
+    const monthsCollected = Math.max(1, monthsPassed + 1); // At least 1 month
+    const subsequentMonthsRevenue = Math.max(0, monthsCollected - 1) * monthlyFee;
+    
+    totalRevenue = month1Revenue + subsequentMonthsRevenue;
+  } else {
+    // No contract start date, assume first month only
+    const starterPack = client.starter_pack_price || 0;
+    const monthlyFee = client.monthly_fee || 0;
+    totalRevenue = starterPack + monthlyFee; // Simplified
+  }
+
+  // Calculate net cash flow (POSITIVE - NEGATIVE)
+  const netCashFlow = totalRevenue - installationCosts;
+
   // Profit status: green if cumulative_revenue >= investment
   const isProfitable = cumulativeRevenue >= totalInvestment;
 
@@ -247,6 +342,9 @@ export function calculateClientMetrics(
       total_investment: totalInvestment,
       first_month_revenue: firstMonthRevenue,
       cumulative_revenue: cumulativeRevenue,
+      installation_costs: installationCosts,
+      total_revenue: totalRevenue,
+      net_cash_flow: netCashFlow,
       is_profitable: isProfitable,
       starter_pack_price: client.starter_pack_price,
       monthly_fee: client.monthly_fee,
@@ -261,5 +359,8 @@ export function calculateClientMetrics(
     cumulative_revenue: cumulativeRevenue,
     is_profitable: isProfitable,
     status: isProfitable ? "profitable" : "covering_investment",
+    installation_costs: installationCosts,
+    total_revenue: totalRevenue,
+    net_cash_flow: netCashFlow,
   };
 }

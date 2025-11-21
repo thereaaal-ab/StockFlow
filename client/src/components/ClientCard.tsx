@@ -64,7 +64,7 @@ export function ClientCard({
               <Euro className="h-4 w-4" />
               <span>Montant d'installation</span>
             </div>
-            <p className="text-lg font-bold">{formatCurrencyCompact(client.total_sold_amount)}</p>
+            <p className="text-lg font-bold">{formatCurrencyCompact(client.total_sold_amount || 0)}</p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -74,6 +74,22 @@ export function ClientCard({
             <p className="text-lg font-bold">{formatCurrencyCompact(client.monthly_fee)}</p>
           </div>
         </div>
+        {client.contract_start_date && (
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Flux Net</span>
+              <p className={`text-lg font-bold ${
+                metrics.net_cash_flow >= 0 ? "text-green-500" : "text-red-500"
+              }`}>
+                {metrics.net_cash_flow >= 0 ? "+" : ""}
+                {formatCurrencyCompact(metrics.net_cash_flow)}
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Revenus - Coûts
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
