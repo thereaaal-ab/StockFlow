@@ -259,10 +259,10 @@ export function AddClientModal() {
           : (product?.purchase_price || 0); // Client pays purchase price when buying
 
         return {
-          productId: detail.productId,
-          name: detail.name,
-          quantity: detail.quantity,
-          monthlyFee: detail.monthlyFee,
+        productId: detail.productId,
+        name: detail.name,
+        quantity: detail.quantity,
+        monthlyFee: detail.monthlyFee,
           type: detail.type || "buy",
           addedAt: now, // All products added in month 1 for new clients
           purchasePrice,
@@ -447,42 +447,42 @@ export function AddClientModal() {
                             </Select>
                           </div>
                           <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <Label htmlFor={`quantity_${product.id}`} className="text-xs">
-                                Quantité
-                              </Label>
-                              <Input
-                                id={`quantity_${product.id}`}
-                                type="number"
+                          <div className="space-y-1">
+                            <Label htmlFor={`quantity_${product.id}`} className="text-xs">
+                              Quantité
+                            </Label>
+                            <Input
+                              id={`quantity_${product.id}`}
+                              type="number"
                                 min="0"
-                                value={detail.quantity}
-                                onChange={(e) =>
+                              value={detail.quantity}
+                              onChange={(e) =>
                                   handleQuantityChange(product.id, e.target.value)
-                                }
-                                disabled={isSaving}
-                              />
-                              {errors[`quantity_${product.id}`] && (
-                                <p className="text-xs text-destructive">
-                                  {errors[`quantity_${product.id}`]}
-                                </p>
-                              )}
-                            </div>
-                            <div className="space-y-1">
-                              <Label htmlFor={`fee_${product.id}`} className="text-xs">
-                                Frais Mensuels (€)
-                              </Label>
-                              <Input
-                                id={`fee_${product.id}`}
-                                type="number"
-                                step="0.01"
-                                min="0"
+                              }
+                              disabled={isSaving}
+                            />
+                            {errors[`quantity_${product.id}`] && (
+                              <p className="text-xs text-destructive">
+                                {errors[`quantity_${product.id}`]}
+                              </p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`fee_${product.id}`} className="text-xs">
+                              Frais Mensuels (€)
+                            </Label>
+                            <Input
+                              id={`fee_${product.id}`}
+                              type="number"
+                              step="0.01"
+                              min="0"
                                 value={detail.monthlyFeeDisplay ?? (detail.monthlyFee === 0 ? "" : detail.monthlyFee.toString())}
-                                onChange={(e) =>
+                              onChange={(e) =>
                                   handleMonthlyFeeChange(product.id, e.target.value)
-                                }
-                                disabled={isSaving}
-                                placeholder="0.00"
-                              />
+                              }
+                              disabled={isSaving}
+                              placeholder="0.00"
+                            />
                             </div>
                           </div>
                         </div>
