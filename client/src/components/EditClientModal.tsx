@@ -32,7 +32,10 @@ interface SelectedProduct {
   monthlyFee: number;
   monthlyFeeDisplay: string; // String representation for input to avoid leading zeros
   stockActuel: number; // Current available stock
-  sellingPrice: number;
+  purchasePrice: number; // Purchase price (what we paid)
+  sellingPrice: number; // Selling price (what we sell for)
+  rentPrice: number; // Rental price (what we charge for rent)
+  type: "buy" | "rent"; // "buy" for purchase, "rent" for rental
   originalQuantity: number; // Original quantity from client (for stock calculation)
 }
 
@@ -86,7 +89,10 @@ export function EditClientModal({
               monthlyFee: clientProduct.monthlyFee,
               monthlyFeeDisplay: clientProduct.monthlyFee === 0 ? "" : clientProduct.monthlyFee.toString(),
               stockActuel: product.stock_actuel ?? product.quantity ?? 0,
+              purchasePrice: product.purchase_price,
               sellingPrice: product.selling_price,
+              rentPrice: product.rent_price ?? 0,
+              type: clientProduct.type || "buy", // Default to buy if not specified
               originalQuantity: clientProduct.quantity, // Store original for stock calculation
             };
           }
@@ -108,7 +114,9 @@ export function EditClientModal({
     let qty = 0;
 
     Object.values(productDetails).forEach((detail) => {
-      sold += detail.sellingPrice * detail.quantity;
+      // Use purchase_price for buy (what we paid), rent_price for rent
+      const price = detail.type === "rent" ? detail.rentPrice : detail.purchasePrice;
+      sold += price * detail.quantity;
       fee += detail.monthlyFee;
       qty += detail.quantity;
     });
@@ -146,7 +154,10 @@ export function EditClientModal({
             monthlyFee: 0,
             monthlyFeeDisplay: "",
             stockActuel: product.stock_actuel ?? product.quantity ?? 0,
+            purchasePrice: product.purchase_price,
             sellingPrice: product.selling_price,
+            rentPrice: product.rent_price ?? 0,
+            type: "buy", // Default to buy
             originalQuantity: 0, // New product, no original quantity
           };
         }
@@ -162,6 +173,20 @@ export function EditClientModal({
 
     setProductDetails(newDetails);
     setErrors({});
+  };
+
+  // Handle product type change (buy/rent)
+  const handleTypeChange = (productId: string, type: "buy" | "rent") => {
+    const detail = productDetails[productId];
+    if (!detail) return;
+
+    setProductDetails({
+      ...productDetails,
+      [productId]: {
+        ...detail,
+        type,
+      },
+    });
   };
 
   // Update product quantity - allow any input, validate on submit
@@ -280,12 +305,32 @@ export function EditClientModal({
     setIsSaving(true);
     try {
       // Prepare products array for client
-      const clientProducts: ClientProduct[] = Object.values(productDetails).map((detail) => ({
-        productId: detail.productId,
-        name: detail.name,
-        quantity: detail.quantity,
-        monthlyFee: detail.monthlyFee,
-      }));
+      // Preserve addedAt for existing products, set new timestamp for newly added products
+      const now = new Date().toISOString();
+      const existingProductIds = client.products?.map((p) => p.productId) || [];
+      
+      const clientProducts: ClientProduct[] = Object.values(productDetails).map((detail) => {
+        const product = products.find((p) => p.id === detail.productId);
+        const purchasePrice = product?.purchase_price || 0;
+        const clientPrice = detail.type === "rent" 
+          ? (product?.rent_price || 0)
+          : (product?.purchase_price || 0); // Client pays purchase price when buying
+
+        // If product already existed, preserve its addedAt, otherwise use current time
+        const existingProduct = client.products?.find((p) => p.productId === detail.productId);
+        const addedAt = existingProduct?.addedAt || now;
+
+        return {
+          productId: detail.productId,
+          name: detail.name,
+          quantity: detail.quantity,
+          monthlyFee: detail.monthlyFee,
+          type: detail.type || "buy",
+          addedAt,
+          purchasePrice,
+          clientPrice,
+        };
+      });
 
       // Update client
       await updateClient(client.id, {
@@ -429,7 +474,7 @@ export function EditClientModal({
                           <div>
                             <h4 className="font-medium">{detail.name}</h4>
                             <p className="text-xs text-muted-foreground">
-                              Stock disponible: {detail.stockActuel + detail.originalQuantity} • Prix: {detail.sellingPrice.toFixed(2)}€
+                              Stock disponible: {detail.stockActuel + detail.originalQuantity} • Prix d'achat: {detail.purchasePrice.toFixed(2)}€
                             </p>
                           </div>
                           <Button
@@ -443,43 +488,69 @@ export function EditClientModal({
                           </Button>
                         </div>
                         <Separator className="mb-3" />
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-3">
                           <div className="space-y-1">
-                            <Label htmlFor={`quantity_${product.id}`} className="text-xs">
-                              Quantité
+                            <Label htmlFor={`type_${product.id}`} className="text-xs">
+                              Type
                             </Label>
-                            <Input
-                              id={`quantity_${product.id}`}
-                              type="number"
-                              min="0"
-                              value={detail.quantity}
-                              onChange={(e) =>
-                                handleQuantityChange(product.id, e.target.value)
+                            <Select
+                              value={detail.type}
+                              onValueChange={(value: "buy" | "rent") =>
+                                handleTypeChange(product.id, value)
                               }
                               disabled={isSaving}
-                            />
-                            {errors[`quantity_${product.id}`] && (
-                              <p className="text-xs text-destructive">
-                                {errors[`quantity_${product.id}`]}
-                              </p>
-                            )}
+                            >
+                              <SelectTrigger id={`type_${product.id}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="buy">
+                                  Acheter ({detail.purchasePrice.toFixed(2)}€)
+                                </SelectItem>
+                                <SelectItem value="rent">
+                                  Louer ({detail.rentPrice.toFixed(2)}€)
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
-                          <div className="space-y-1">
-                            <Label htmlFor={`fee_${product.id}`} className="text-xs">
-                              Frais Mensuels (€)
-                            </Label>
-                            <Input
-                              id={`fee_${product.id}`}
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={detail.monthlyFeeDisplay ?? (detail.monthlyFee === 0 ? "" : detail.monthlyFee.toString())}
-                              onChange={(e) =>
-                                handleMonthlyFeeChange(product.id, e.target.value)
-                              }
-                              disabled={isSaving}
-                              placeholder="0.00"
-                            />
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label htmlFor={`quantity_${product.id}`} className="text-xs">
+                                Quantité
+                              </Label>
+              <Input
+                                id={`quantity_${product.id}`}
+                type="number"
+                                min="0"
+                                value={detail.quantity}
+                onChange={(e) =>
+                                  handleQuantityChange(product.id, e.target.value)
+                                }
+                                disabled={isSaving}
+                              />
+                              {errors[`quantity_${product.id}`] && (
+                                <p className="text-xs text-destructive">
+                                  {errors[`quantity_${product.id}`]}
+                </p>
+              )}
+            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor={`fee_${product.id}`} className="text-xs">
+                                Frais Mensuels (€)
+                              </Label>
+                              <Input
+                                id={`fee_${product.id}`}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={detail.monthlyFeeDisplay ?? (detail.monthlyFee === 0 ? "" : detail.monthlyFee.toString())}
+                                onChange={(e) =>
+                                  handleMonthlyFeeChange(product.id, e.target.value)
+                                }
+                                disabled={isSaving}
+                                placeholder="0.00"
+                              />
+                            </div>
                           </div>
                         </div>
                       </CardContent>

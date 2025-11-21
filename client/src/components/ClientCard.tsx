@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Package, Euro, Calendar, Edit, Trash2 } from "lucide-react";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { calculateClientMetrics } from "@/lib/clientCalculations";
+import { Client } from "@/hooks/useClients";
+import { useProducts } from "@/hooks/useProducts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,14 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 interface ClientCardProps {
-  name: string;
-  totalSoldAmount: number;
-  monthlyFee: number;
-  productQuantity: number;
-  monthsLeft: number;
-  starterPackPrice?: number;
-  hardwarePrice?: number;
-  contractStartDate?: string;
+  client: Client; // Pass full client object for accurate calculations
   onViewDetails: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -32,39 +27,27 @@ interface ClientCardProps {
 }
 
 export function ClientCard({ 
-  name,
-  totalSoldAmount, 
-  monthlyFee, 
-  productQuantity, 
-  monthsLeft,
-  starterPackPrice,
-  hardwarePrice,
-  contractStartDate,
+  client,
   onViewDetails,
   onEdit,
   onDelete,
   isDeleting = false,
 }: ClientCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const { products } = useProducts();
   
   // Calculate client metrics for status display
-  const metrics = calculateClientMetrics({
-    contract_start_date: contractStartDate,
-    starter_pack_price: starterPackPrice,
-    hardware_price: hardwarePrice,
-    total_sold_amount: totalSoldAmount,
-    monthly_fee: monthlyFee,
-  });
+  const metrics = calculateClientMetrics(client, products);
 
   return (
-    <Card className="hover-elevate" data-testid={`card-client-${name.toLowerCase().replace(/\s+/g, "-")}`}>
+    <Card className="hover-elevate" data-testid={`card-client-${client.client_name.toLowerCase().replace(/\s+/g, "-")}`}>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
-            <span>{name}</span>
+            <span>{client.client_name}</span>
           </div>
-          {contractStartDate && (
+          {client.contract_start_date && (
             <Badge
               variant={metrics.is_profitable ? "default" : "destructive"}
               className={metrics.is_profitable ? "bg-green-500 hover:bg-green-600" : ""}
@@ -81,14 +64,14 @@ export function ClientCard({
               <Euro className="h-4 w-4" />
               <span>Montant Vendu</span>
             </div>
-            <p className="text-lg font-bold">{formatCurrencyCompact(totalSoldAmount)}</p>
+            <p className="text-lg font-bold">{formatCurrencyCompact(client.total_sold_amount)}</p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Euro className="h-4 w-4" />
               <span>Frais Mensuels</span>
             </div>
-            <p className="text-lg font-bold">{formatCurrencyCompact(monthlyFee)}</p>
+            <p className="text-lg font-bold">{formatCurrencyCompact(client.monthly_fee)}</p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -97,7 +80,7 @@ export function ClientCard({
               <Package className="h-4 w-4" />
               <span>Quantité Produits</span>
             </div>
-            <p className="text-lg font-bold">{productQuantity}</p>
+            <p className="text-lg font-bold">{client.product_quantity}</p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -105,7 +88,7 @@ export function ClientCard({
               <span>Mois Restants</span>
             </div>
             <p className="text-lg font-bold text-primary">
-              {monthsLeft} {monthsLeft === 1 ? "mois" : "mois"}
+              {client.months_left} {client.months_left === 1 ? "mois" : "mois"}
             </p>
             <p className="text-xs text-muted-foreground">(calculé automatiquement)</p>
           </div>
@@ -144,7 +127,7 @@ export function ClientCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer le client</AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer le client "{name}" ? Cette action est irréversible.
+              Êtes-vous sûr de vouloir supprimer le client "{client.client_name}" ? Cette action est irréversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

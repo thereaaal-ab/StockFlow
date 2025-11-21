@@ -33,13 +33,7 @@ export function ClientDetailsModal({
     : null;
 
   // Calculate client metrics for display
-  const metrics = calculateClientMetrics({
-    contract_start_date: client.contract_start_date,
-    starter_pack_price: client.starter_pack_price,
-    hardware_price: client.hardware_price,
-    total_sold_amount: client.total_sold_amount,
-    monthly_fee: client.monthly_fee,
-  });
+  const metrics = calculateClientMetrics(client, products);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -144,14 +138,14 @@ export function ClientDetailsModal({
                         </div>
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Calendar className="h-4 w-4" />
-                            <span>Mois Nécessaires</span>
+                            <Euro className="h-4 w-4" />
+                            <span>Revenu Cumulatif</span>
                           </div>
                           <p className="text-lg font-bold">
-                            {metrics.months_needed_to_cover === Infinity ? "∞" : `${metrics.months_needed_to_cover} ${metrics.months_needed_to_cover === 1 ? "mois" : "mois"}`}
+                            {formatCurrencyFull(metrics.cumulative_revenue)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Pour couvrir l'investissement
+                            Revenu total depuis le début
                           </p>
                         </div>
                       </div>
@@ -166,9 +160,35 @@ export function ClientDetailsModal({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Starter Pack: {formatCurrencyFull(client.starter_pack_price || 0)} • 
-                            Hardware: {formatCurrencyFull(client.hardware_price || 0)} • 
-                            Vente: {formatCurrencyFull(client.total_sold_amount || 0)}
+                            Investissement Hardware: {formatCurrencyFull(metrics.total_investment - (client.starter_pack_price || 0))}
                           </p>
+                          <div className="mt-2 space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Revenu Mois 1:</span>
+                              <span className="font-medium">{formatCurrencyFull(metrics.first_month_revenue)}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Revenu Cumulatif:</span>
+                              <span className="font-medium">{formatCurrencyFull(metrics.cumulative_revenue)}</span>
+                            </div>
+                            <div className="mt-2 pt-2 border-t">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Mois Passés:</span>
+                                <span className="font-medium">{metrics.months_passed}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-xs mt-1">
+                                <span className="text-muted-foreground">Statut:</span>
+                                <span className={`font-medium ${metrics.is_profitable ? 'text-green-500' : 'text-red-500'}`}>
+                                  {metrics.is_profitable ? '✓ Profitable' : '✗ En cours de couverture'}
+                                </span>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {metrics.cumulative_revenue >= metrics.total_investment 
+                                  ? `Revenu (${formatCurrencyFull(metrics.cumulative_revenue)}) >= Investissement (${formatCurrencyFull(metrics.total_investment)})`
+                                  : `Revenu (${formatCurrencyFull(metrics.cumulative_revenue)}) < Investissement (${formatCurrencyFull(metrics.total_investment)})`}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
