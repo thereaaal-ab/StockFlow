@@ -33,8 +33,13 @@ export default function HardwareTotal() {
     await deleteProduct(productId);
   };
 
+  // Calculate total investment based on hardware_total (original quantity purchased)
+  // This shows the total value of all hardware purchased, not just what's currently in stock
   const totalInvestment = products.reduce(
-    (sum, item) => sum + item.total_value,
+    (sum, item) => {
+      const hardwareTotal = item.hardware_total ?? item.quantity ?? 0;
+      return sum + (hardwareTotal * item.purchase_price);
+    },
     0
   );
 
@@ -79,6 +84,7 @@ export default function HardwareTotal() {
         <>
           <HardwareTable
             data={filteredData}
+            showHardwareTotal={true}
             onEdit={handleEdit}
             onDelete={handleDelete}
           />

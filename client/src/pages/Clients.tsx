@@ -73,6 +73,9 @@ export default function Clients() {
                 monthlyFee={client.monthly_fee}
                 productQuantity={client.product_quantity}
                 monthsLeft={client.months_left}
+                starterPackPrice={client.starter_pack_price}
+                hardwarePrice={client.hardware_price}
+                contractStartDate={client.contract_start_date}
                 onViewDetails={() => handleViewDetails(client)}
                 onEdit={() => handleEdit(client)}
                 onDelete={() => handleDelete(client)}

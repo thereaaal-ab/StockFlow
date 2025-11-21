@@ -462,7 +462,10 @@ export default function Analytics() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Matériel en stock bas</span>
                 <span className="font-semibold text-status-warning">
-                  {countsLoading ? "..." : products.filter(p => p.quantity > 0 && p.quantity < 5).length} produits
+                  {countsLoading ? "..." : products.filter(p => {
+                    const stock = p.stock_actuel ?? p.quantity ?? 0;
+                    return stock > 0 && stock < 5;
+                  }).length} produits
                 </span>
               </div>
               <div className="w-full bg-secondary rounded-full h-2">
@@ -471,7 +474,10 @@ export default function Analytics() {
                   style={{ 
                     width: countsLoading || counts.productCount === 0 
                       ? "0%" 
-                      : `${Math.round((products.filter(p => p.quantity > 0 && p.quantity < 5).length / counts.productCount) * 100)}%` 
+                      : `${Math.round((products.filter(p => {
+                        const stock = p.stock_actuel ?? p.quantity ?? 0;
+                        return stock > 0 && stock < 5;
+                      }).length / counts.productCount) * 100)}%` 
                   }}
                 />
               </div>

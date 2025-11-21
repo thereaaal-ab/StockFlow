@@ -13,6 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export function AddHardwareDialog() {
   const [open, setOpen] = useState(false);
@@ -22,24 +30,31 @@ export function AddHardwareDialog() {
     quantity: "",
     buyPrice: "",
     sellPrice: "",
-    category: "",
+    rentPrice: "",
+    category_id: "",
   });
   const [isSaving, setIsSaving] = useState(false);
   const { createProduct } = useProducts();
+  const { categories, isLoading: categoriesLoading } = useCategories();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
+      const quantity = parseInt(formData.quantity) || 0;
       await createProduct({
         code: formData.code,
         name: formData.name,
-        quantity: parseInt(formData.quantity) || 0,
+        quantity: quantity, // Keep for backward compatibility
+        hardware_total: quantity, // Original quantity - set to initial quantity
+        stock_actuel: quantity, // Current stock - set to initial quantity
         purchase_price: parseFloat(formData.buyPrice) || 0,
         selling_price: parseFloat(formData.sellPrice) || 0,
+        rent_price: parseFloat(formData.rentPrice) || 0,
         profit: 0, // Will be calculated in the hook
         total_value: 0, // Will be calculated in the hook
-        category: formData.category.trim() || "Other",
+        category: "Other", // Keep for backward compatibility
+        category_id: formData.category_id || undefined,
       });
       setOpen(false);
       setFormData({
@@ -48,7 +63,8 @@ export function AddHardwareDialog() {
         quantity: "",
         buyPrice: "",
         sellPrice: "",
-        category: "",
+        rentPrice: "",
+        category_id: "",
       });
     } catch (error) {
       console.error("Error creating product:", error);
@@ -140,17 +156,46 @@ export function AddHardwareDialog() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="category">Catégorie</Label>
+              <Label htmlFor="rentPrice">Prix Location (€)</Label>
               <Input
-                id="category"
-                placeholder="Ex: Phones, Laptops, Chargers, Headphones, Wifi Routers..."
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                data-testid="input-category"
-                required
+                id="rentPrice"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={formData.rentPrice}
+                onChange={(e) => setFormData({ ...formData, rentPrice: e.target.value })}
+                data-testid="input-rent-price"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="category">Catégorie</Label>
+              {categoriesLoading ? (
+                <div className="text-sm text-muted-foreground">Chargement des catégories...</div>
+              ) : categories.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  Aucune catégorie disponible. Créez-en une dans les paramètres.
+                </div>
+              ) : (
+                <Select
+                  value={formData.category_id}
+                  onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                  required
+                >
+                  <SelectTrigger id="category" data-testid="select-category">
+                    <SelectValue placeholder="Sélectionner une catégorie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name.charAt(0).toUpperCase() + category.name.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <p className="text-xs text-muted-foreground">
-                Saisissez librement la catégorie du produit
+                Sélectionnez une catégorie existante ou créez-en une dans les paramètres
               </p>
             </div>
           </div>

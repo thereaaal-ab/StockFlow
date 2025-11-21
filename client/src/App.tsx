@@ -12,6 +12,7 @@ import HardwareTotal from "@/pages/HardwareTotal";
 import Stock from "@/pages/Stock";
 import Clients from "@/pages/Clients";
 import Analytics from "@/pages/Analytics";
+import Settings from "@/pages/Settings";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/stock" component={Stock} />
       <Route path="/clients" component={Clients} />
       <Route path="/analytics" component={Analytics} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );

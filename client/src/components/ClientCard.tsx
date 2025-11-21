@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Users, Package, Euro, Calendar, Edit, Trash2 } from "lucide-react";
 import { formatCurrencyCompact } from "@/lib/utils";
+import { calculateClientMetrics } from "@/lib/clientCalculations";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +22,9 @@ interface ClientCardProps {
   monthlyFee: number;
   productQuantity: number;
   monthsLeft: number;
+  starterPackPrice?: number;
+  hardwarePrice?: number;
+  contractStartDate?: string;
   onViewDetails: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -31,20 +36,42 @@ export function ClientCard({
   totalSoldAmount, 
   monthlyFee, 
   productQuantity, 
-  monthsLeft, 
+  monthsLeft,
+  starterPackPrice,
+  hardwarePrice,
+  contractStartDate,
   onViewDetails,
   onEdit,
   onDelete,
   isDeleting = false,
 }: ClientCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
+  // Calculate client metrics for status display
+  const metrics = calculateClientMetrics({
+    contract_start_date: contractStartDate,
+    starter_pack_price: starterPackPrice,
+    hardware_price: hardwarePrice,
+    total_sold_amount: totalSoldAmount,
+    monthly_fee: monthlyFee,
+  });
 
   return (
     <Card className="hover-elevate" data-testid={`card-client-${name.toLowerCase().replace(/\s+/g, "-")}`}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5 text-primary" />
-          <span>{name}</span>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            <span>{name}</span>
+          </div>
+          {contractStartDate && (
+            <Badge
+              variant={metrics.is_profitable ? "default" : "destructive"}
+              className={metrics.is_profitable ? "bg-green-500 hover:bg-green-600" : ""}
+            >
+              {metrics.is_profitable ? "Profitable" : "Still covering investment"}
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

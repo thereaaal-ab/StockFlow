@@ -1,6 +1,6 @@
 import { StatCard } from "@/components/StatCard";
 import { InventoryChart } from "@/components/InventoryChart";
-import { Package, Warehouse, Users, Euro } from "lucide-react";
+import { Users, Euro } from "lucide-react";
 import { formatCurrencyCompact } from "@/lib/utils";
 import {
   Table,
@@ -11,15 +11,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDashboardCounts } from "@/hooks/useDashboardCounts";
-import { useProducts } from "@/hooks/useProducts";
 import { useClients } from "@/hooks/useClients";
+import { useCommissions } from "@/hooks/useCommissions";
 import { useMemo } from "react";
 
 export default function Dashboard() {
-  const { counts, isLoading: countsLoading } = useDashboardCounts();
-  const { products, isLoading: productsLoading } = useProducts();
   const { clients, isLoading: clientsLoading } = useClients();
+  const { totalCommissions, isLoading: commissionsLoading } = useCommissions();
 
   // Calculate client data from real products and clients
   const clientData = useMemo(() => {
@@ -28,6 +26,21 @@ export default function Dashboard() {
       name: client.client_name,
       value: client.total_sold_amount,
     }));
+  }, [clients]);
+
+  // Calculate total monthly revenue (sum of all clients' monthly payments)
+  const totalMonthlyRevenue = useMemo(() => {
+    return clients.reduce((sum, client) => sum + (client.monthly_fee || 0), 0);
+  }, [clients]);
+
+  // Calculate total starter pack revenue
+  const totalStarterPackRevenue = useMemo(() => {
+    return clients.reduce((sum, client) => sum + (client.starter_pack_price || 0), 0);
+  }, [clients]);
+
+  // Count active clients
+  const activeClientsCount = useMemo(() => {
+    return clients.filter((client) => (client.status || "active") === "active").length;
   }, [clients]);
 
   // Recent movements - empty for now, can be enhanced with actual movement tracking
@@ -53,28 +66,28 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total Matériel"
-          value={countsLoading ? "..." : counts.productCount.toString()}
-          icon={Package}
-          testId="card-total-hardware"
+          title="Revenu Mensuel Total"
+          value={clientsLoading ? "..." : formatCurrencyCompact(totalMonthlyRevenue)}
+          icon={Euro}
+          testId="card-monthly-revenue"
         />
         <StatCard
-          title="Stock Disponible"
-          value={countsLoading ? "..." : counts.availableStockCount.toString()}
-          icon={Warehouse}
-          testId="card-available-stock"
+          title="Revenu Starter Pack"
+          value={clientsLoading ? "..." : formatCurrencyCompact(totalStarterPackRevenue)}
+          icon={Euro}
+          testId="card-starter-pack-revenue"
+        />
+        <StatCard
+          title="Commissions Total"
+          value={commissionsLoading ? "..." : formatCurrencyCompact(totalCommissions)}
+          icon={Euro}
+          testId="card-total-commissions"
         />
         <StatCard
           title="Clients Actifs"
-          value={countsLoading ? "..." : counts.clientCount.toString()}
+          value={clientsLoading ? "..." : activeClientsCount.toString()}
           icon={Users}
           testId="card-active-clients"
-        />
-        <StatCard
-          title="Valeur Totale"
-          value={countsLoading ? "..." : formatCurrencyCompact(counts.totalValue)}
-          icon={Euro}
-          testId="card-total-value"
         />
       </div>
 

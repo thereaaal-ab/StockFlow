@@ -125,7 +125,7 @@ export function ProductMultiSelect({
                     <div className="flex-1">
                       <div className="font-medium">{product.name}</div>
                       <div className="text-xs text-muted-foreground">
-                        Stock: {product.quantity} • Prix: {product.selling_price.toFixed(2)}€
+                        Stock disponible: {product.stock_actuel ?? product.quantity ?? 0} • Prix: {product.selling_price.toFixed(2)}€
                       </div>
                     </div>
                   </CommandItem>

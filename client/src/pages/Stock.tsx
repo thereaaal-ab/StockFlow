@@ -29,11 +29,14 @@ export default function Stock() {
     );
 
     if (statusFilter === "in-stock") {
-      filtered = filtered.filter((item) => item.quantity > 0);
+      filtered = filtered.filter((item) => (item.stock_actuel ?? item.quantity ?? 0) > 0);
     } else if (statusFilter === "out-of-stock") {
-      filtered = filtered.filter((item) => item.quantity === 0);
+      filtered = filtered.filter((item) => (item.stock_actuel ?? item.quantity ?? 0) === 0);
     } else if (statusFilter === "low-stock") {
-      filtered = filtered.filter((item) => item.quantity > 0 && item.quantity < 5);
+      filtered = filtered.filter((item) => {
+        const stock = item.stock_actuel ?? item.quantity ?? 0;
+        return stock > 0 && stock < 5;
+      });
     }
 
     return filtered;
@@ -53,8 +56,11 @@ export default function Stock() {
   };
 
   const availableStockValue = filteredData
-    .filter((item) => item.quantity > 0)
-    .reduce((sum, item) => sum + item.total_value, 0);
+    .filter((item) => (item.stock_actuel ?? item.quantity ?? 0) > 0)
+    .reduce((sum, item) => {
+      const stock = item.stock_actuel ?? item.quantity ?? 0;
+      return sum + (stock * item.purchase_price);
+    }, 0);
 
   return (
     <div className="space-y-6">
