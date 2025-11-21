@@ -21,11 +21,15 @@ export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   code: varchar("code").notNull().unique(),
   name: text("name").notNull(),
-  quantity: integer("quantity").notNull().default(0),
+  quantity: integer("quantity").notNull().default(0), // Keep for backward compatibility
+  hardware_total: integer("hardware_total").notNull().default(0), // Original quantity, never changes automatically
+  stock_actuel: integer("stock_actuel").notNull().default(0), // Current available stock, decreases when clients receive products
   purchase_price: numeric("purchase_price", { precision: 10, scale: 2 }).notNull(),
   selling_price: numeric("selling_price", { precision: 10, scale: 2 }).notNull(),
+  rent_price: numeric("rent_price", { precision: 10, scale: 2 }).notNull().default("0"),
   profit: numeric("profit", { precision: 10, scale: 2 }).notNull().default("0"),
   total_value: numeric("total_value", { precision: 10, scale: 2 }).notNull().default("0"),
+  category_id: varchar("category_id"), // Foreign key to categories table
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -40,3 +44,16 @@ export const insertProductSchema = createInsertSchema(products).pick({
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
+
+export const categories = pgTable("categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCategorySchema = createInsertSchema(categories).pick({
+  name: true,
+});
+
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type Category = typeof categories.$inferSelect;

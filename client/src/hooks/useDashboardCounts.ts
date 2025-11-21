@@ -42,16 +42,24 @@ export function useDashboardCounts() {
         // Get available stock count and total value
         const { data: products, error: productsError } = await supabase
           .from("products")
-          .select("quantity, total_value");
+          .select("quantity, hardware_total, stock_actuel, purchase_price, total_value");
 
         if (productsError) {
           console.error("Error fetching products:", productsError);
         }
 
+        // Use stock_actuel if available, otherwise fall back to quantity
         const availableStockCount =
-          products?.filter((p) => (p.quantity || 0) > 0).length || 0;
+          products?.filter((p) => {
+            const stock = p.stock_actuel ?? p.quantity ?? 0;
+            return stock > 0;
+          }).length || 0;
         const totalValue =
-          products?.reduce((sum, p) => sum + parseFloat(p.total_value || "0"), 0) || 0;
+          products?.reduce((sum, p) => {
+            const stock = p.stock_actuel ?? p.quantity ?? 0;
+            const purchasePrice = parseFloat(p.purchase_price || "0");
+            return sum + (stock * purchasePrice);
+          }, 0) || 0;
 
         setCounts({
           productCount: productCount || 0,
@@ -89,12 +97,20 @@ export function useDashboardCounts() {
 
           const { data: products } = await supabase
             .from("products")
-            .select("quantity, total_value");
+            .select("quantity, hardware_total, stock_actuel, purchase_price, total_value");
 
+          // Use stock_actuel if available, otherwise fall back to quantity
           const availableStockCount =
-            products?.filter((p) => (p.quantity || 0) > 0).length || 0;
+            products?.filter((p) => {
+              const stock = p.stock_actuel ?? p.quantity ?? 0;
+              return stock > 0;
+            }).length || 0;
           const totalValue =
-            products?.reduce((sum, p) => sum + parseFloat(p.total_value || "0"), 0) || 0;
+            products?.reduce((sum, p) => {
+              const stock = p.stock_actuel ?? p.quantity ?? 0;
+              const purchasePrice = parseFloat(p.purchase_price || "0");
+              return sum + (stock * purchasePrice);
+            }, 0) || 0;
 
           setCounts((prev) => ({
             ...prev,

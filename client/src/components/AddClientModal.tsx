@@ -24,7 +24,8 @@ interface SelectedProduct {
   name: string;
   quantity: number;
   monthlyFee: number;
-  stock: number;
+  monthlyFeeDisplay: string; // String representation for input to avoid leading zeros
+  stockActuel: number; // Current available stock
   sellingPrice: number;
 }
 
@@ -35,6 +36,7 @@ export function AddClientModal() {
   const [productDetails, setProductDetails] = useState<Record<string, SelectedProduct>>({});
   const [starterPackPrice, setStarterPackPrice] = useState("");
   const [hardwarePrice, setHardwarePrice] = useState("");
+  const [contractStartDate, setContractStartDate] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const { products, updateProduct } = useProducts();
@@ -84,7 +86,8 @@ export function AddClientModal() {
             name: product.name,
             quantity: 1,
             monthlyFee: 0,
-            stock: product.quantity,
+            monthlyFeeDisplay: "",
+            stockActuel: product.stock_actuel ?? product.quantity ?? 0,
             sellingPrice: product.selling_price,
           };
         }
@@ -104,16 +107,19 @@ export function AddClientModal() {
     setErrors({});
   };
 
-  // Update product quantity
-  const handleQuantityChange = (productId: string, quantity: number) => {
+  // Update product quantity - allow any input, validate on submit
+  const handleQuantityChange = (productId: string, value: string) => {
     const detail = productDetails[productId];
     if (!detail) return;
+
+    // Allow empty string or any number, convert to number for storage
+    const quantity = value === "" ? 0 : parseInt(value, 10) || 0;
 
     const newDetails = {
       ...productDetails,
       [productId]: {
         ...detail,
-        quantity: Math.max(1, Math.floor(quantity)),
+        quantity: quantity,
       },
     };
 
@@ -127,16 +133,25 @@ export function AddClientModal() {
     }
   };
 
-  // Update product monthly fee
-  const handleMonthlyFeeChange = (productId: string, monthlyFee: number) => {
+  // Update product monthly fee - handle string input to avoid leading zeros
+  const handleMonthlyFeeChange = (productId: string, value: string) => {
     const detail = productDetails[productId];
     if (!detail) return;
+
+    // Remove leading zeros (but allow "0" or "0.xx")
+    let cleanedValue = value;
+    if (cleanedValue.length > 1 && cleanedValue.startsWith('0') && !cleanedValue.startsWith('0.')) {
+      cleanedValue = cleanedValue.replace(/^0+/, '') || '0';
+    }
+    
+    const monthlyFee = cleanedValue === "" || cleanedValue === "-" ? 0 : parseFloat(cleanedValue) || 0;
 
     setProductDetails({
       ...productDetails,
       [productId]: {
         ...detail,
         monthlyFee: Math.max(0, monthlyFee),
+        monthlyFeeDisplay: cleanedValue,
       },
     });
   };
@@ -171,10 +186,10 @@ export function AddClientModal() {
       newErrors.products = "Veuillez sélectionner au moins un produit";
     }
 
-    // Validate each product's quantity against stock
+    // Validate each product's quantity against stock_actuel
     Object.values(productDetails).forEach((detail) => {
-      if (detail.quantity > detail.stock) {
-        newErrors[`quantity_${detail.productId}`] = `La quantité (${detail.quantity}) ne peut pas dépasser le stock disponible (${detail.stock})`;
+      if (detail.quantity > detail.stockActuel) {
+        newErrors[`quantity_${detail.productId}`] = `Not enough stock available for this product. Available: ${detail.stockActuel}, Requested: ${detail.quantity}`;
       }
       if (detail.quantity < 1) {
         newErrors[`quantity_${detail.productId}`] = "La quantité doit être au moins 1";
@@ -222,19 +237,28 @@ export function AddClientModal() {
         products: clientProducts,
         starter_pack_price: starterPackPrice ? parseFloat(starterPackPrice) : undefined,
         hardware_price: hardwarePrice ? parseFloat(hardwarePrice) : undefined,
+        contract_start_date: contractStartDate || undefined,
+        status: "active",
       });
 
-      // Update stock for each product
+      // Update stock_actuel for each product (do not change hardware_total)
       for (const detail of Object.values(productDetails)) {
         const product = products.find((p) => p.id === detail.productId);
         if (product) {
-          const newQuantity = product.quantity - detail.quantity;
-          const newTotalValue = newQuantity * product.purchase_price;
+          // Check stock availability one more time before updating
+          if (product.stock_actuel < detail.quantity) {
+            throw new Error(`Not enough stock available for product ${product.name}. Available: ${product.stock_actuel}, Requested: ${detail.quantity}`);
+          }
+          
+          const newStockActuel = product.stock_actuel - detail.quantity;
+          const newTotalValue = newStockActuel * product.purchase_price;
           
           await updateProduct({
             ...product,
-            quantity: newQuantity,
+            stock_actuel: newStockActuel,
+            quantity: newStockActuel, // Keep quantity in sync for backward compatibility
             total_value: newTotalValue,
+            // hardware_total remains unchanged
           });
         }
       }
@@ -274,6 +298,7 @@ export function AddClientModal() {
       setProductDetails({});
       setStarterPackPrice("");
       setHardwarePrice("");
+      setContractStartDate("");
       setErrors({});
     }
   };
@@ -339,7 +364,7 @@ export function AddClientModal() {
                           <div>
                             <h4 className="font-medium">{detail.name}</h4>
                             <p className="text-xs text-muted-foreground">
-                              Stock: {detail.stock} • Prix: {detail.sellingPrice.toFixed(2)}€
+                              Stock disponible: {detail.stockActuel} • Prix: {detail.sellingPrice.toFixed(2)}€
                             </p>
                           </div>
                           <Button
@@ -361,11 +386,10 @@ export function AddClientModal() {
                             <Input
                               id={`quantity_${product.id}`}
                               type="number"
-                              min="1"
-                              max={detail.stock}
+                              min="0"
                               value={detail.quantity}
                               onChange={(e) =>
-                                handleQuantityChange(product.id, parseInt(e.target.value, 10) || 1)
+                                handleQuantityChange(product.id, e.target.value)
                               }
                               disabled={isSaving}
                             />
@@ -384,9 +408,9 @@ export function AddClientModal() {
                               type="number"
                               step="0.01"
                               min="0"
-                              value={detail.monthlyFee}
+                              value={detail.monthlyFeeDisplay ?? (detail.monthlyFee === 0 ? "" : detail.monthlyFee.toString())}
                               onChange={(e) =>
-                                handleMonthlyFeeChange(product.id, parseFloat(e.target.value) || 0)
+                                handleMonthlyFeeChange(product.id, e.target.value)
                               }
                               disabled={isSaving}
                               placeholder="0.00"
@@ -473,6 +497,21 @@ export function AddClientModal() {
                   <p className="text-sm text-destructive">{errors.hardware_price}</p>
                 )}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="contract_start_date">Date de Début du Contrat</Label>
+              <Input
+                id="contract_start_date"
+                type="date"
+                value={contractStartDate}
+                onChange={(e) => setContractStartDate(e.target.value)}
+                disabled={isSaving}
+                data-testid="input-contract-start-date"
+              />
+              <p className="text-xs text-muted-foreground">
+                Date à laquelle le contrat avec le client a commencé
+              </p>
             </div>
 
             <div className="space-y-2">

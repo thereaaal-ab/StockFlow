@@ -20,6 +20,8 @@ export interface Client {
   products?: ClientProduct[];
   starter_pack_price?: number;
   hardware_price?: number;
+  contract_start_date?: string; // Date in ISO format
+  status?: string; // 'active' | 'inactive'
   created_at?: string;
   updated_at?: string;
 }
@@ -50,6 +52,8 @@ function mapClient(client: any): Client {
     products: products.length > 0 ? products : undefined,
     starter_pack_price: client.starter_pack_price ? parseFloat(client.starter_pack_price) : undefined,
     hardware_price: client.hardware_price ? parseFloat(client.hardware_price) : undefined,
+    contract_start_date: client.contract_start_date || undefined,
+    status: client.status || "active",
     created_at: client.created_at,
     updated_at: client.updated_at,
   };
@@ -95,6 +99,12 @@ async function createClient(client: Omit<Client, "id" | "created_at" | "updated_
   }
   if (client.hardware_price !== undefined) {
     insertData.hardware_price = client.hardware_price;
+  }
+  if (client.contract_start_date) {
+    insertData.contract_start_date = client.contract_start_date;
+  }
+  if (client.status) {
+    insertData.status = client.status;
   }
 
   console.log("Inserting client data:", insertData);
@@ -142,6 +152,18 @@ async function updateClient(
   // Include products array if provided
   if (client.products !== undefined) {
     updateData.products = client.products.length > 0 ? client.products : [];
+  }
+  if (client.starter_pack_price !== undefined) {
+    updateData.starter_pack_price = client.starter_pack_price || null;
+  }
+  if (client.hardware_price !== undefined) {
+    updateData.hardware_price = client.hardware_price || null;
+  }
+  if (client.contract_start_date !== undefined) {
+    updateData.contract_start_date = client.contract_start_date || null;
+  }
+  if (client.status !== undefined) {
+    updateData.status = client.status;
   }
 
   // Note: We don't set updated_at here - let the database trigger handle it

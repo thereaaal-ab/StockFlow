@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,9 +17,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useClients, Client } from "@/hooks/useClients";
+import { Trash2 } from "lucide-react";
+import { useClients, Client, ClientProduct } from "@/hooks/useClients";
 import { useProducts } from "@/hooks/useProducts";
 import { useToast } from "@/hooks/use-toast";
+import { ProductMultiSelect } from "@/components/ProductMultiSelect";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+
+interface SelectedProduct {
+  productId: string;
+  name: string;
+  quantity: number;
+  monthlyFee: number;
+  monthlyFeeDisplay: string; // String representation for input to avoid leading zeros
+  stockActuel: number; // Current available stock
+  sellingPrice: number;
+  originalQuantity: number; // Original quantity from client (for stock calculation)
+}
 
 interface EditClientModalProps {
   open: boolean;
@@ -32,72 +47,220 @@ export function EditClientModal({
   onOpenChange,
   client,
 }: EditClientModalProps) {
-  const [formData, setFormData] = useState({
-    client_name: "",
-    product_quantity: "",
-    total_sold_amount: "",
-    monthly_fee: "",
-    product_id: "",
-  });
-  const { products } = useProducts();
+  const [clientName, setClientName] = useState("");
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [productDetails, setProductDetails] = useState<Record<string, SelectedProduct>>({});
+  const [starterPackPrice, setStarterPackPrice] = useState("");
+  const [hardwarePrice, setHardwarePrice] = useState("");
+  const [contractStartDate, setContractStartDate] = useState("");
+  const [status, setStatus] = useState<"active" | "inactive">("active");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const { products, updateProduct } = useProducts();
   const { updateClient } = useClients();
   const { toast } = useToast();
 
   // Initialize form data when client changes
   useEffect(() => {
-    if (client) {
-      setFormData({
-        client_name: client.client_name || "",
-        product_quantity: client.product_quantity?.toString() || "",
-        total_sold_amount: client.total_sold_amount?.toString() || "",
-        monthly_fee: client.monthly_fee?.toString() || "",
-        product_id: client.product_id || "",
-      });
+    if (client && open) {
+      setClientName(client.client_name || "");
+      setStarterPackPrice(client.starter_pack_price?.toString() || "");
+      setHardwarePrice(client.hardware_price?.toString() || "");
+      setContractStartDate(client.contract_start_date ? client.contract_start_date.split('T')[0] : "");
+      setStatus((client.status as "active" | "inactive") || "active");
       setErrors({});
+
+      // Initialize products from client
+      if (client.products && client.products.length > 0) {
+        const productIds: string[] = [];
+        const details: Record<string, SelectedProduct> = {};
+
+        client.products.forEach((clientProduct) => {
+          const product = products.find((p) => p.id === clientProduct.productId);
+          if (product) {
+            productIds.push(product.id);
+            details[product.id] = {
+              productId: product.id,
+              name: product.name,
+              quantity: clientProduct.quantity,
+              monthlyFee: clientProduct.monthlyFee,
+              monthlyFeeDisplay: clientProduct.monthlyFee === 0 ? "" : clientProduct.monthlyFee.toString(),
+              stockActuel: product.stock_actuel ?? product.quantity ?? 0,
+              sellingPrice: product.selling_price,
+              originalQuantity: clientProduct.quantity, // Store original for stock calculation
+            };
+          }
+        });
+
+        setSelectedProductIds(productIds);
+        setProductDetails(details);
+      } else {
+        setSelectedProductIds([]);
+        setProductDetails({});
+      }
     }
-  }, [client, open]);
+  }, [client, open, products]);
+
+  // Calculate totals from selected products
+  const { totalSoldAmount, totalMonthlyFee, totalProductQuantity } = useMemo(() => {
+    let sold = 0;
+    let fee = 0;
+    let qty = 0;
+
+    Object.values(productDetails).forEach((detail) => {
+      sold += detail.sellingPrice * detail.quantity;
+      fee += detail.monthlyFee;
+      qty += detail.quantity;
+    });
+
+    return {
+      totalSoldAmount: sold,
+      totalMonthlyFee: fee,
+      totalProductQuantity: qty,
+    };
+  }, [productDetails]);
 
   // Calculate months_left automatically
-  const monthsLeft = (() => {
-    const totalSold = parseFloat(formData.total_sold_amount) || 0;
-    const monthlyFee = parseFloat(formData.monthly_fee) || 0;
-    if (monthlyFee > 0) {
-      return Math.ceil(totalSold / monthlyFee);
+  const monthsLeft = useMemo(() => {
+    if (totalMonthlyFee > 0) {
+      return Math.ceil(totalSoldAmount / totalMonthlyFee);
     }
     return 0;
-  })();
+  }, [totalSoldAmount, totalMonthlyFee]);
+
+  // Handle product selection change
+  const handleProductSelectionChange = (productIds: string[]) => {
+    setSelectedProductIds(productIds);
+
+    // Initialize product details for newly selected products
+    const newDetails: Record<string, SelectedProduct> = { ...productDetails };
+    
+    productIds.forEach((productId) => {
+      if (!newDetails[productId]) {
+        const product = products.find((p) => p.id === productId);
+        if (product) {
+          newDetails[productId] = {
+            productId: product.id,
+            name: product.name,
+            quantity: 1,
+            monthlyFee: 0,
+            monthlyFeeDisplay: "",
+            stockActuel: product.stock_actuel ?? product.quantity ?? 0,
+            sellingPrice: product.selling_price,
+            originalQuantity: 0, // New product, no original quantity
+          };
+        }
+      }
+    });
+
+    // Remove details for unselected products
+    Object.keys(newDetails).forEach((productId) => {
+      if (!productIds.includes(productId)) {
+        delete newDetails[productId];
+      }
+    });
+
+    setProductDetails(newDetails);
+    setErrors({});
+  };
+
+  // Update product quantity - allow any input, validate on submit
+  const handleQuantityChange = (productId: string, value: string) => {
+    const detail = productDetails[productId];
+    if (!detail) return;
+
+    const quantity = value === "" ? 0 : parseInt(value, 10) || 0;
+
+    setProductDetails({
+      ...productDetails,
+      [productId]: {
+        ...detail,
+        quantity: quantity,
+      },
+    });
+    
+    // Clear error for this product
+    if (errors[`quantity_${productId}`]) {
+      const newErrors = { ...errors };
+      delete newErrors[`quantity_${productId}`];
+      setErrors(newErrors);
+    }
+  };
+
+  // Update product monthly fee - handle string input to avoid leading zeros
+  const handleMonthlyFeeChange = (productId: string, value: string) => {
+    const detail = productDetails[productId];
+    if (!detail) return;
+
+    // Remove leading zeros (but allow "0" or "0.xx")
+    let cleanedValue = value;
+    if (cleanedValue.length > 1 && cleanedValue.startsWith('0') && !cleanedValue.startsWith('0.')) {
+      cleanedValue = cleanedValue.replace(/^0+/, '') || '0';
+    }
+    
+    const monthlyFee = cleanedValue === "" || cleanedValue === "-" ? 0 : parseFloat(cleanedValue) || 0;
+
+    setProductDetails({
+      ...productDetails,
+      [productId]: {
+        ...detail,
+        monthlyFee: Math.max(0, monthlyFee),
+        monthlyFeeDisplay: cleanedValue,
+      },
+    });
+  };
+
+  // Remove product
+  const handleRemoveProduct = (productId: string) => {
+    const newIds = selectedProductIds.filter((id) => id !== productId);
+    setSelectedProductIds(newIds);
+    
+    const newDetails = { ...productDetails };
+    delete newDetails[productId];
+    setProductDetails(newDetails);
+
+    // Clear errors for this product
+    const newErrors = { ...errors };
+    Object.keys(newErrors).forEach((key) => {
+      if (key.startsWith(`${productId}_`)) {
+        delete newErrors[key];
+      }
+    });
+    setErrors(newErrors);
+  };
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.client_name.trim()) {
+    if (!clientName.trim()) {
       newErrors.client_name = "Le nom du client est requis";
     }
 
-    const productQty = parseInt(formData.product_quantity, 10);
-    if (!formData.product_quantity || isNaN(productQty) || productQty < 1) {
-      newErrors.product_quantity = "La quantité de produits doit être supérieure ou égale à 1";
+    if (selectedProductIds.length === 0) {
+      newErrors.products = "Veuillez sélectionner au moins un produit";
     }
 
-    const totalSold = parseFloat(formData.total_sold_amount);
-    if (!formData.total_sold_amount || isNaN(totalSold) || totalSold < 0) {
-      newErrors.total_sold_amount = "Le montant total vendu doit être un nombre positif";
-    }
+    // Validate each product's quantity against stock_actuel
+    // For editing, we need to account for the original quantity that was already taken
+    Object.values(productDetails).forEach((detail) => {
+      // Calculate available stock: current stock + original quantity (since we're editing)
+      const availableStock = detail.stockActuel + detail.originalQuantity;
+      
+      if (detail.quantity > availableStock) {
+        newErrors[`quantity_${detail.productId}`] = `Not enough stock available for this product. Available: ${availableStock}, Requested: ${detail.quantity}`;
+      }
+      if (detail.quantity < 1) {
+        newErrors[`quantity_${detail.productId}`] = "La quantité doit être au moins 1";
+      }
+    });
 
-    const monthlyFee = parseFloat(formData.monthly_fee);
-    if (!formData.monthly_fee || isNaN(monthlyFee) || monthlyFee <= 0) {
-      newErrors.monthly_fee = "Les frais mensuels doivent être supérieurs à 0";
-    }
-
-    // Validation: total_sold_amount must be >= monthly_fee
-    if (totalSold > 0 && monthlyFee > 0 && totalSold < monthlyFee) {
-      newErrors.total_sold_amount = "Le montant total vendu doit être supérieur ou égal aux frais mensuels";
+    // Validation: total_sold_amount must be >= totalMonthlyFee
+    if (totalSoldAmount > 0 && totalMonthlyFee > 0 && totalSoldAmount < totalMonthlyFee) {
+      newErrors.total_sold_amount = "Le montant total vendu doit être supérieur ou égal aux frais mensuels totaux";
     }
 
     // Validation: months_left must be >= 1
-    if (monthsLeft < 1) {
+    if (totalMonthlyFee > 0 && monthsLeft < 1) {
       newErrors.months_left = "Le nombre de mois restants doit être supérieur ou égal à 1";
     }
 
@@ -116,14 +279,79 @@ export function EditClientModal({
 
     setIsSaving(true);
     try {
+      // Prepare products array for client
+      const clientProducts: ClientProduct[] = Object.values(productDetails).map((detail) => ({
+        productId: detail.productId,
+        name: detail.name,
+        quantity: detail.quantity,
+        monthlyFee: detail.monthlyFee,
+      }));
+
+      // Update client
       await updateClient(client.id, {
-        client_name: formData.client_name.trim(),
-        product_quantity: parseInt(formData.product_quantity, 10),
-        total_sold_amount: parseFloat(formData.total_sold_amount),
-        monthly_fee: parseFloat(formData.monthly_fee),
+        client_name: clientName.trim(),
+        product_quantity: totalProductQuantity,
+        total_sold_amount: totalSoldAmount,
+        monthly_fee: totalMonthlyFee,
         months_left: monthsLeft,
-        product_id: formData.product_id || undefined,
+        products: clientProducts,
+        starter_pack_price: starterPackPrice ? parseFloat(starterPackPrice) : undefined,
+        hardware_price: hardwarePrice ? parseFloat(hardwarePrice) : undefined,
+        contract_start_date: contractStartDate || undefined,
+        status: status,
       });
+
+      // Update stock_actuel for each product
+      // Calculate the difference: newQuantity - originalQuantity
+      // If positive, decrease stock; if negative, increase stock
+      for (const detail of Object.values(productDetails)) {
+        const product = products.find((p) => p.id === detail.productId);
+        if (product) {
+          const quantityDifference = detail.quantity - detail.originalQuantity;
+          
+          // Calculate new stock: current stock - quantity difference
+          // (if quantity increased, difference is positive, so stock decreases)
+          const newStockActuel = product.stock_actuel - quantityDifference;
+          
+          if (newStockActuel < 0) {
+            throw new Error(`Not enough stock available for product ${product.name}. Available: ${product.stock_actuel + detail.originalQuantity}, Requested: ${detail.quantity}`);
+          }
+          
+          const newTotalValue = newStockActuel * product.purchase_price;
+          
+          await updateProduct({
+            ...product,
+            stock_actuel: newStockActuel,
+            quantity: newStockActuel, // Keep quantity in sync for backward compatibility
+            total_value: newTotalValue,
+            // hardware_total remains unchanged
+          });
+        }
+      }
+
+      // Handle products that were removed (restore their stock)
+      if (client.products && client.products.length > 0) {
+        const currentProductIds = Object.keys(productDetails);
+        const removedProducts = client.products.filter(
+          (cp) => !currentProductIds.includes(cp.productId)
+        );
+
+        for (const removedProduct of removedProducts) {
+          const product = products.find((p) => p.id === removedProduct.productId);
+          if (product) {
+            // Restore the original quantity to stock
+            const newStockActuel = product.stock_actuel + removedProduct.quantity;
+            const newTotalValue = newStockActuel * product.purchase_price;
+            
+            await updateProduct({
+              ...product,
+              stock_actuel: newStockActuel,
+              quantity: newStockActuel,
+              total_value: newTotalValue,
+            });
+          }
+        }
+      }
 
       onOpenChange(false);
       toast({
@@ -145,19 +373,13 @@ export function EditClientModal({
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData({ ...formData, [field]: value });
-    // Clear error for this field when user starts typing
-    if (errors[field]) {
-      setErrors({ ...errors, [field]: "" });
-    }
-  };
-
   if (!client) return null;
+
+  const selectedProducts = products.filter((p) => selectedProductIds.includes(p.id));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Modifier le client</DialogTitle>
@@ -171,8 +393,8 @@ export function EditClientModal({
               <Input
                 id="edit_client_name"
                 placeholder="Nom du client"
-                value={formData.client_name}
-                onChange={(e) => handleInputChange("client_name", e.target.value)}
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
                 required
               />
               {errors.client_name && (
@@ -181,40 +403,108 @@ export function EditClientModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit_product_quantity">Quantité de Produits</Label>
-              <Input
-                id="edit_product_quantity"
-                type="number"
-                placeholder="0"
-                value={formData.product_quantity}
-                onChange={(e) =>
-                  handleInputChange("product_quantity", e.target.value)
-                }
-                required
+              <Label>Produits</Label>
+              <ProductMultiSelect
+                products={products}
+                selectedProductIds={selectedProductIds}
+                onSelectionChange={handleProductSelectionChange}
+                disabled={isSaving}
               />
-              {errors.product_quantity && (
-                <p className="text-sm text-destructive">
-                  {errors.product_quantity}
-                </p>
+              {errors.products && (
+                <p className="text-sm text-destructive">{errors.products}</p>
               )}
             </div>
 
+            {selectedProducts.length > 0 && (
+              <div className="space-y-3">
+                <Label>Détails des produits sélectionnés</Label>
+                {selectedProducts.map((product) => {
+                  const detail = productDetails[product.id];
+                  if (!detail) return null;
+
+                  return (
+                    <Card key={product.id}>
+                      <CardContent className="pt-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h4 className="font-medium">{detail.name}</h4>
+                            <p className="text-xs text-muted-foreground">
+                              Stock disponible: {detail.stockActuel + detail.originalQuantity} • Prix: {detail.sellingPrice.toFixed(2)}€
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveProduct(product.id)}
+                            disabled={isSaving}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <Separator className="mb-3" />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label htmlFor={`quantity_${product.id}`} className="text-xs">
+                              Quantité
+                            </Label>
+                            <Input
+                              id={`quantity_${product.id}`}
+                              type="number"
+                              min="0"
+                              value={detail.quantity}
+                              onChange={(e) =>
+                                handleQuantityChange(product.id, e.target.value)
+                              }
+                              disabled={isSaving}
+                            />
+                            {errors[`quantity_${product.id}`] && (
+                              <p className="text-xs text-destructive">
+                                {errors[`quantity_${product.id}`]}
+                              </p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`fee_${product.id}`} className="text-xs">
+                              Frais Mensuels (€)
+                            </Label>
+                            <Input
+                              id={`fee_${product.id}`}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={detail.monthlyFeeDisplay ?? (detail.monthlyFee === 0 ? "" : detail.monthlyFee.toString())}
+                              onChange={(e) =>
+                                handleMonthlyFeeChange(product.id, e.target.value)
+                              }
+                              disabled={isSaving}
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            <Separator />
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit_total_sold_amount">
-                  Montant Total Vendu (€)
-                </Label>
+                <Label htmlFor="edit_total_sold_amount">Montant Total Vendu (€)</Label>
                 <Input
                   id="edit_total_sold_amount"
                   type="number"
                   step="0.01"
-                  placeholder="0.00"
-                  value={formData.total_sold_amount}
-                  onChange={(e) =>
-                    handleInputChange("total_sold_amount", e.target.value)
-                  }
-                  required
+                  value={totalSoldAmount.toFixed(2)}
+                  disabled
+                  className="bg-muted"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Calculé automatiquement
+                </p>
                 {errors.total_sold_amount && (
                   <p className="text-sm text-destructive">
                     {errors.total_sold_amount}
@@ -222,23 +512,45 @@ export function EditClientModal({
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit_monthly_fee">Frais Mensuels (€)</Label>
+                <Label htmlFor="edit_monthly_fee">Frais Mensuels Totaux (€)</Label>
                 <Input
                   id="edit_monthly_fee"
                   type="number"
                   step="0.01"
-                  placeholder="0.00"
-                  value={formData.monthly_fee}
-                  onChange={(e) =>
-                    handleInputChange("monthly_fee", e.target.value)
-                  }
-                  required
+                  value={totalMonthlyFee.toFixed(2)}
+                  disabled
+                  className="bg-muted"
                 />
-                {errors.monthly_fee && (
-                  <p className="text-sm text-destructive">
-                    {errors.monthly_fee}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Calculé automatiquement
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_starter_pack_price">Starter Pack Price (€)</Label>
+                <Input
+                  id="edit_starter_pack_price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={starterPackPrice}
+                  onChange={(e) => setStarterPackPrice(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_hardware_price">Hardware Price (€)</Label>
+                <Input
+                  id="edit_hardware_price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={hardwarePrice}
+                  onChange={(e) => setHardwarePrice(e.target.value)}
+                />
               </div>
             </div>
 
@@ -261,39 +573,29 @@ export function EditClientModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit_product_id">Produit (optionnel)</Label>
+              <Label htmlFor="edit_contract_start_date">Date de Début du Contrat</Label>
+              <Input
+                id="edit_contract_start_date"
+                type="date"
+                value={contractStartDate}
+                onChange={(e) => setContractStartDate(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit_status">Statut</Label>
               <Select
-                value={formData.product_id || undefined}
-                onValueChange={(value) => handleInputChange("product_id", value)}
+                value={status}
+                onValueChange={(value) => setStatus(value as "active" | "inactive")}
               >
-                <SelectTrigger id="edit_product_id">
-                  <SelectValue placeholder="Sélectionner un produit (optionnel)" />
+                <SelectTrigger id="edit_status">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {products.length === 0 ? (
-                    <SelectItem value="no-products" disabled>
-                      Aucun produit disponible
-                    </SelectItem>
-                  ) : (
-                    products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name} ({product.code})
-                      </SelectItem>
-                    ))
-                  )}
+                  <SelectItem value="active">Actif</SelectItem>
+                  <SelectItem value="inactive">Inactif</SelectItem>
                 </SelectContent>
               </Select>
-              {formData.product_id && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs"
-                  onClick={() => handleInputChange("product_id", "")}
-                >
-                  Effacer la sélection
-                </Button>
-              )}
             </div>
           </div>
           <DialogFooter>
@@ -317,5 +619,3 @@ export function EditClientModal({
     </Dialog>
   );
 }
-
-

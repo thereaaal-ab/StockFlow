@@ -6,10 +6,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, Euro, Package, Calendar, CalendarClock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Users, Euro, Package, Calendar, CalendarClock, TrendingUp } from "lucide-react";
 import { Client } from "@/hooks/useClients";
 import { formatCurrencyFull } from "@/lib/utils";
 import { useProducts } from "@/hooks/useProducts";
+import { calculateClientMetrics } from "@/lib/clientCalculations";
 
 interface ClientDetailsModalProps {
   open: boolean;
@@ -29,6 +31,15 @@ export function ClientDetailsModal({
   const product = client.product_id
     ? products.find((p) => p.id === client.product_id)
     : null;
+
+  // Calculate client metrics for display
+  const metrics = calculateClientMetrics({
+    contract_start_date: client.contract_start_date,
+    starter_pack_price: client.starter_pack_price,
+    hardware_price: client.hardware_price,
+    total_sold_amount: client.total_sold_amount,
+    monthly_fee: client.monthly_fee,
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -102,6 +113,67 @@ export function ClientDetailsModal({
                     </p>
                   </div>
                 </div>
+
+                {client.contract_start_date && (
+                  <>
+                    <div className="border-t pt-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <TrendingUp className="h-4 w-4" />
+                          <span>Statut d'Investissement</span>
+                        </div>
+                        <Badge
+                          variant={metrics.is_profitable ? "default" : "destructive"}
+                          className={metrics.is_profitable ? "bg-green-500 hover:bg-green-600" : ""}
+                        >
+                          {metrics.is_profitable ? "Profitable" : "Still covering investment"}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            <span>Mois Passés</span>
+                          </div>
+                          <p className="text-lg font-bold">
+                            {metrics.months_passed} {metrics.months_passed === 1 ? "mois" : "mois"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Depuis le {new Date(client.contract_start_date).toLocaleDateString("fr-FR")}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            <span>Mois Nécessaires</span>
+                          </div>
+                          <p className="text-lg font-bold">
+                            {metrics.months_needed_to_cover === Infinity ? "∞" : `${metrics.months_needed_to_cover} ${metrics.months_needed_to_cover === 1 ? "mois" : "mois"}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Pour couvrir l'investissement
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Euro className="h-4 w-4" />
+                            <span>Investissement Total</span>
+                          </div>
+                          <p className="text-lg font-bold">
+                            {formatCurrencyFull(metrics.total_investment)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Starter Pack: {formatCurrencyFull(client.starter_pack_price || 0)} • 
+                            Hardware: {formatCurrencyFull(client.hardware_price || 0)} • 
+                            Vente: {formatCurrencyFull(client.total_sold_amount || 0)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {product && (
                   <div className="space-y-2 border-t pt-4">
