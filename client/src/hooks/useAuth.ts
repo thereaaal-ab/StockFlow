@@ -8,11 +8,16 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
+    // Get initial session (this automatically handles OAuth callbacks from URL hash)
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      
+      // Clean up OAuth callback hash from URL if present
+      if (window.location.hash.includes('access_token') || window.location.hash.includes('error')) {
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+      }
     });
 
     // Listen for auth changes
@@ -28,10 +33,17 @@ export function useAuth() {
   }, []);
 
   const signInWithGoogle = async () => {
+    // Get the current origin (works in both dev and production)
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
       },
     });
     if (error) throw error;
@@ -51,6 +63,7 @@ export function useAuth() {
     isAuthenticated: !!user,
   };
 }
+
 
 
 
