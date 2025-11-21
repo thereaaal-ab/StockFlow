@@ -7,6 +7,10 @@ export interface ClientProduct {
   name: string;
   quantity: number;
   monthlyFee: number;
+  type?: "buy" | "rent"; // "buy" for purchase, "rent" for rental
+  addedAt?: string; // ISO timestamp when this hardware was added to the client
+  purchasePrice?: number; // Purchase price (what we paid) - for investment calculation
+  clientPrice?: number; // Price client pays (buy or rent) - for revenue calculation
 }
 
 export interface Client {

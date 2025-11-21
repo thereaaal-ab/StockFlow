@@ -68,14 +68,7 @@ export default function Clients() {
             {clients.map((client) => (
               <ClientCard
                 key={client.id}
-                name={client.client_name}
-                totalSoldAmount={client.total_sold_amount}
-                monthlyFee={client.monthly_fee}
-                productQuantity={client.product_quantity}
-                monthsLeft={client.months_left}
-                starterPackPrice={client.starter_pack_price}
-                hardwarePrice={client.hardware_price}
-                contractStartDate={client.contract_start_date}
+                client={client}
                 onViewDetails={() => handleViewDetails(client)}
                 onEdit={() => handleEdit(client)}
                 onDelete={() => handleDelete(client)}

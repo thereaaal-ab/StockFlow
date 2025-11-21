@@ -150,6 +150,38 @@ export default function Settings() {
       return;
     }
 
+    // Validate and format month input
+    let formattedMonth = commissionMonth.trim();
+    
+    // If user enters just year (e.g., "2025"), convert to YYYY-MM-01 format
+    if (/^\d{4}$/.test(formattedMonth)) {
+      formattedMonth = `${formattedMonth}-01-01`;
+    }
+    // If user enters YYYY-MM, convert to YYYY-MM-01
+    else if (/^\d{4}-\d{2}$/.test(formattedMonth)) {
+      formattedMonth = `${formattedMonth}-01`;
+    }
+    // Validate it's a valid date format
+    else if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedMonth)) {
+      toast({
+        title: "Erreur",
+        description: "Le format du mois doit être YYYY-MM (ex: 2025-01) ou YYYY (ex: 2025)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate the date is actually valid
+    const date = new Date(formattedMonth);
+    if (isNaN(date.getTime())) {
+      toast({
+        title: "Erreur",
+        description: "Date invalide. Utilisez le format YYYY-MM (ex: 2025-01)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const amount = parseFloat(commissionAmount);
     if (isNaN(amount) || amount < 0) {
       toast({
@@ -161,7 +193,7 @@ export default function Settings() {
     }
 
     try {
-      await createCommission({ month: commissionMonth, amount });
+      await createCommission({ month: formattedMonth, amount });
       setCommissionMonth("");
       setCommissionAmount("");
       setIsCreateCommissionDialogOpen(false);
@@ -188,6 +220,38 @@ export default function Settings() {
       return;
     }
 
+    // Validate and format month input
+    let formattedMonth = commissionMonth.trim();
+    
+    // If user enters just year (e.g., "2025"), convert to YYYY-MM-01 format
+    if (/^\d{4}$/.test(formattedMonth)) {
+      formattedMonth = `${formattedMonth}-01-01`;
+    }
+    // If user enters YYYY-MM, convert to YYYY-MM-01
+    else if (/^\d{4}-\d{2}$/.test(formattedMonth)) {
+      formattedMonth = `${formattedMonth}-01`;
+    }
+    // Validate it's a valid date format
+    else if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedMonth)) {
+      toast({
+        title: "Erreur",
+        description: "Le format du mois doit être YYYY-MM (ex: 2025-01) ou YYYY (ex: 2025)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate the date is actually valid
+    const date = new Date(formattedMonth);
+    if (isNaN(date.getTime())) {
+      toast({
+        title: "Erreur",
+        description: "Date invalide. Utilisez le format YYYY-MM (ex: 2025-01)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const amount = parseFloat(commissionAmount);
     if (isNaN(amount) || amount < 0) {
       toast({
@@ -199,7 +263,7 @@ export default function Settings() {
     }
 
     try {
-      await updateCommission(editingCommission.id, commissionMonth, amount);
+      await updateCommission(editingCommission.id, formattedMonth, amount);
       setEditingCommission(null);
       setCommissionMonth("");
       setCommissionAmount("");
@@ -238,7 +302,10 @@ export default function Settings() {
 
   const openEditCommissionDialog = (commission: { id: string; month: string; amount: number }) => {
     setEditingCommission(commission);
-    setCommissionMonth(commission.month);
+    // Extract YYYY-MM from the date string for display
+    const monthStr = commission.month.split('T')[0]; // Get YYYY-MM-DD
+    const monthOnly = monthStr.substring(0, 7); // Get YYYY-MM
+    setCommissionMonth(monthOnly);
     setCommissionAmount(commission.amount.toString());
     setIsEditCommissionDialogOpen(true);
   };
@@ -459,15 +526,16 @@ export default function Settings() {
                 <DialogHeader>
                   <DialogTitle>Créer une nouvelle commission</DialogTitle>
                   <DialogDescription>
-                    Ajoutez une commission pour un mois spécifique (format: YYYY-MM, ex: 2024-01).
+                    Ajoutez une commission pour un mois spécifique. Vous pouvez entrer YYYY-MM (ex: 2025-01) ou juste l'année (ex: 2025).
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="commission-month">Mois (YYYY-MM)</Label>
+                    <Label htmlFor="commission-month">Mois (YYYY-MM ou YYYY)</Label>
                     <Input
                       id="commission-month"
-                      placeholder="2024-01"
+                      type="text"
+                      placeholder="2025-01 ou 2025"
                       value={commissionMonth}
                       onChange={(e) => setCommissionMonth(e.target.value)}
                       onKeyDown={(e) => {
@@ -477,6 +545,9 @@ export default function Settings() {
                       }}
                       data-testid="input-commission-month"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Format accepté: YYYY-MM (ex: 2025-01) ou YYYY (ex: 2025). Si vous entrez juste l'année, le mois sera défini sur janvier.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="commission-amount">Montant (€)</Label>
@@ -536,10 +607,21 @@ export default function Settings() {
                   {commissions.map((commission) => (
                     <TableRow key={commission.id}>
                       <TableCell className="font-medium">
-                        {new Date(commission.month + "-01").toLocaleDateString("fr-FR", {
-                          year: "numeric",
-                          month: "long",
-                        })}
+                        {(() => {
+                          try {
+                            const monthStr = commission.month.split('T')[0] || commission.month;
+                            const date = new Date(monthStr);
+                            if (!isNaN(date.getTime())) {
+                              return date.toLocaleDateString("fr-FR", {
+                                year: "numeric",
+                                month: "long",
+                              });
+                            }
+                            return monthStr;
+                          } catch {
+                            return commission.month;
+                          }
+                        })()}
                       </TableCell>
                       <TableCell className="text-right font-semibold">
                         {formatCurrencyFull(commission.amount)}
@@ -586,10 +668,11 @@ export default function Settings() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-commission-month">Mois (YYYY-MM)</Label>
+              <Label htmlFor="edit-commission-month">Mois (YYYY-MM ou YYYY)</Label>
               <Input
                 id="edit-commission-month"
-                placeholder="2024-01"
+                type="text"
+                placeholder="2025-01 ou 2025"
                 value={commissionMonth}
                 onChange={(e) => setCommissionMonth(e.target.value)}
                 onKeyDown={(e) => {
@@ -599,6 +682,9 @@ export default function Settings() {
                 }}
                 data-testid="input-edit-commission-month"
               />
+              <p className="text-xs text-muted-foreground">
+                Format accepté: YYYY-MM (ex: 2025-01) ou YYYY (ex: 2025). Si vous entrez juste l'année, le mois sera défini sur janvier.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-commission-amount">Montant (€)</Label>
