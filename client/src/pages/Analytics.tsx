@@ -24,7 +24,7 @@ import { useClients } from "@/hooks/useClients";
 import { useCategories } from "@/hooks/useCategories";
 import { useMemo, useState } from "react";
 import { formatCurrencyCompact, formatCurrencyFull } from "@/lib/utils";
-import { diffInMonths } from "@/lib/clientCalculations";
+import { diffInMonths, calculateClientMetrics } from "@/lib/clientCalculations";
 
 const CHART_COLORS = [
   "hsl(var(--chart-1))",
@@ -147,39 +147,19 @@ export default function Analytics() {
   }, [clients, selectedCategory, productMap]);
 
   // Client value data - filtered by category
-  // Shows installation cost vs collected revenue
+  // Shows installation costs (negative) vs collected revenue (positive)
   const clientValueData = useMemo(() => {
     return filteredClients.map((client) => {
-      const starterPack = client.starter_pack_price || 0;
-      const hardware = client.hardware_price || 0;
-      const monthlyFee = client.monthly_fee || 0;
-      
-      // Installation amount = starter pack + hardware
-      const installation = starterPack + hardware;
-      
-      // Calculate current revenue (collected amount)
-      let collected = 0;
-      if (client.contract_start_date) {
-        const contractStartDate = new Date(client.contract_start_date);
-        const today = new Date();
-        const monthsPassed = diffInMonths(contractStartDate, today);
-        
-        if (monthsPassed >= 0) {
-          const monthsCollected = monthsPassed + 1;
-          collected = starterPack + hardware + (monthlyFee * monthsCollected);
-        }
-      } else {
-        // No contract start date, assume 1 month collected
-        collected = starterPack + hardware + monthlyFee;
-      }
+      // Calculate metrics using the new cash flow logic
+      const metrics = calculateClientMetrics(client, products);
       
       return {
         name: client.client_name,
-        installation,
-        collected,
+        installation: metrics.installation_costs, // Negative: what we spent
+        collected: metrics.total_revenue, // Positive: what we collected
       };
     });
-  }, [filteredClients]);
+  }, [filteredClients, products]);
 
   // Hardware distribution by category - percentage based
   const hardwareDistribution = useMemo(() => {
