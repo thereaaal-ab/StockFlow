@@ -47,6 +47,10 @@ export function AddClientModal() {
   const [starterPackPrice, setStarterPackPrice] = useState("");
   const [hardwarePrice, setHardwarePrice] = useState("");
   const [contractStartDate, setContractStartDate] = useState("");
+  const [manualTotalSoldAmount, setManualTotalSoldAmount] = useState<string | null>(null);
+  const [manualTotalMonthlyFee, setManualTotalMonthlyFee] = useState<string | null>(null);
+  const [isEditingSoldAmount, setIsEditingSoldAmount] = useState(false);
+  const [isEditingMonthlyFee, setIsEditingMonthlyFee] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const { products, updateProduct } = useProducts();
@@ -54,21 +58,21 @@ export function AddClientModal() {
   const { toast } = useToast();
 
   // Calculate totals from selected products
-  const { totalSoldAmount, totalMonthlyFee, totalProductQuantity } = useMemo(() => {
-    let sold = 0;
+  // Montant d'installation = sum of all hardware purchase prices (what we paid)
+  const { installationAmount, totalMonthlyFee, totalProductQuantity } = useMemo(() => {
+    let installation = 0; // Sum of purchase prices (what we invested)
     let fee = 0;
     let qty = 0;
 
     Object.values(productDetails).forEach((detail) => {
-      // Use purchase_price for buy (what we paid), rent_price for rent
-      const price = detail.type === "rent" ? detail.rentPrice : detail.purchasePrice;
-      sold += price * detail.quantity;
+      // Always use purchase_price for installation amount (what we paid for hardware)
+      installation += detail.purchasePrice * detail.quantity;
       fee += detail.monthlyFee;
       qty += detail.quantity;
     });
 
     return {
-      totalSoldAmount: sold,
+      installationAmount: installation,
       totalMonthlyFee: fee,
       totalProductQuantity: qty,
     };
@@ -77,10 +81,13 @@ export function AddClientModal() {
   // Calculate months_left automatically
   const monthsLeft = useMemo(() => {
     if (totalMonthlyFee > 0) {
-      return Math.ceil(totalSoldAmount / totalMonthlyFee);
+      const finalInstallation = manualTotalSoldAmount !== null && manualTotalSoldAmount !== "" 
+        ? parseFloat(manualTotalSoldAmount) 
+        : installationAmount;
+      return Math.ceil(finalInstallation / totalMonthlyFee);
     }
     return 0;
-  }, [totalSoldAmount, totalMonthlyFee]);
+  }, [installationAmount, totalMonthlyFee, manualTotalSoldAmount]);
 
   // Handle product selection
   const handleProductSelectionChange = (productIds: string[]) => {
@@ -225,13 +232,22 @@ export function AddClientModal() {
       }
     });
 
-    // Validation: total_sold_amount must be >= totalMonthlyFee
-    if (totalSoldAmount > 0 && totalMonthlyFee > 0 && totalSoldAmount < totalMonthlyFee) {
-      newErrors.total_sold_amount = "Le montant total vendu doit être supérieur ou égal aux frais mensuels totaux";
+    // Use manual values for validation if provided
+    const finalInstallationAmount = manualTotalSoldAmount !== null && manualTotalSoldAmount !== "" 
+      ? parseFloat(manualTotalSoldAmount) 
+      : installationAmount;
+    const finalTotalMonthlyFee = manualTotalMonthlyFee !== null && manualTotalMonthlyFee !== "" 
+      ? parseFloat(manualTotalMonthlyFee) 
+      : totalMonthlyFee;
+
+    // Validation: installation amount must be >= totalMonthlyFee
+    if (finalInstallationAmount > 0 && finalTotalMonthlyFee > 0 && finalInstallationAmount < finalTotalMonthlyFee) {
+      newErrors.total_sold_amount = "Le montant d'installation doit être supérieur ou égal aux frais mensuels totaux";
     }
 
     // Validation: months_left must be >= 1
-    if (totalMonthlyFee > 0 && monthsLeft < 1) {
+    const finalMonthsLeft = finalTotalMonthlyFee > 0 ? Math.ceil(finalInstallationAmount / finalTotalMonthlyFee) : monthsLeft;
+    if (finalTotalMonthlyFee > 0 && finalMonthsLeft < 1) {
       newErrors.months_left = "Le nombre de mois restants doit être supérieur ou égal à 1";
     }
 
@@ -270,13 +286,22 @@ export function AddClientModal() {
         };
       });
 
+      // Use manually entered values if provided, otherwise use calculated values
+      const finalInstallationAmount = manualTotalSoldAmount !== null && manualTotalSoldAmount !== "" 
+        ? parseFloat(manualTotalSoldAmount) 
+        : installationAmount;
+      const finalTotalMonthlyFee = manualTotalMonthlyFee !== null && manualTotalMonthlyFee !== "" 
+        ? parseFloat(manualTotalMonthlyFee) 
+        : totalMonthlyFee;
+      const finalMonthsLeft = finalTotalMonthlyFee > 0 ? Math.ceil(finalInstallationAmount / finalTotalMonthlyFee) : monthsLeft;
+
       // Create client
       await createClient({
         client_name: clientName.trim(),
         product_quantity: totalProductQuantity,
-        total_sold_amount: totalSoldAmount,
-        monthly_fee: totalMonthlyFee,
-        months_left: monthsLeft,
+        total_sold_amount: finalInstallationAmount, // Store as total_sold_amount in DB (backward compatibility)
+        monthly_fee: finalTotalMonthlyFee,
+        months_left: finalMonthsLeft,
         products: clientProducts,
         starter_pack_price: starterPackPrice ? parseFloat(starterPackPrice) : undefined,
         hardware_price: hardwarePrice ? parseFloat(hardwarePrice) : undefined,
@@ -337,6 +362,10 @@ export function AddClientModal() {
     if (!newOpen) {
       // Reset form when closing
       setClientName("");
+      setManualTotalSoldAmount(null);
+      setManualTotalMonthlyFee(null);
+      setIsEditingSoldAmount(false);
+      setIsEditingMonthlyFee(false);
       setSelectedProductIds([]);
       setProductDetails({});
       setStarterPackPrice("");
@@ -438,10 +467,10 @@ export function AddClientModal() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="buy">
-                                  Acheter ({detail.purchasePrice.toFixed(2)}€)
+                                  Acheter
                                 </SelectItem>
                                 <SelectItem value="rent">
-                                  Louer ({detail.rentPrice.toFixed(2)}€)
+                                  Louer
                                 </SelectItem>
                               </SelectContent>
                             </Select>
@@ -497,18 +526,31 @@ export function AddClientModal() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="total_sold_amount">Montant Total Vendu (€)</Label>
+                <Label htmlFor="installation_amount">Montant d'installation (€)</Label>
                 <Input
-                  id="total_sold_amount"
+                  id="installation_amount"
                   type="number"
                   step="0.01"
-                  value={totalSoldAmount.toFixed(2)}
-                  disabled
+                  value={isEditingSoldAmount || manualTotalSoldAmount !== null 
+                    ? (manualTotalSoldAmount || "") 
+                    : installationAmount.toFixed(2)}
+                  onChange={(e) => {
+                    setIsEditingSoldAmount(true);
+                    setManualTotalSoldAmount(e.target.value);
+                  }}
+                  onBlur={() => {
+                    setIsEditingSoldAmount(false);
+                    // If empty after blur, revert to calculated
+                    if (manualTotalSoldAmount === "") {
+                      setManualTotalSoldAmount(null);
+                    }
+                  }}
+                  disabled={isSaving}
                   className="bg-muted"
-                  data-testid="input-total-sold"
+                  data-testid="input-installation-amount"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Calculé automatiquement
+                  {manualTotalSoldAmount !== null ? "Valeur manuelle" : "Calculé automatiquement (somme des prix d'achat)"}
                 </p>
                 {errors.total_sold_amount && (
                   <p className="text-sm text-destructive">{errors.total_sold_amount}</p>
@@ -520,13 +562,26 @@ export function AddClientModal() {
                   id="monthly_fee"
                   type="number"
                   step="0.01"
-                  value={totalMonthlyFee.toFixed(2)}
-                  disabled
+                  value={isEditingMonthlyFee || manualTotalMonthlyFee !== null 
+                    ? (manualTotalMonthlyFee || "") 
+                    : totalMonthlyFee.toFixed(2)}
+                  onChange={(e) => {
+                    setIsEditingMonthlyFee(true);
+                    setManualTotalMonthlyFee(e.target.value);
+                  }}
+                  onBlur={() => {
+                    setIsEditingMonthlyFee(false);
+                    // If empty after blur, revert to calculated
+                    if (manualTotalMonthlyFee === "") {
+                      setManualTotalMonthlyFee(null);
+                    }
+                  }}
+                  disabled={isSaving}
                   className="bg-muted"
                   data-testid="input-monthly-fee"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Somme des frais mensuels
+                  {manualTotalMonthlyFee !== null ? "Valeur manuelle" : "Calculé automatiquement"}
                 </p>
               </div>
             </div>

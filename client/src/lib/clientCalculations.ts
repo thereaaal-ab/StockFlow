@@ -48,14 +48,15 @@ function isInFirstMonth(date: Date, contractStartDate: Date): boolean {
 
 /**
  * Calculate total investment for a client
- * Investment = Starter Pack (month 1 only) + Hardware Price (manually entered)
+ * Investment = Starter Pack (month 1 only) + Montant d'installation (sum of hardware purchase prices)
  * Monthly fee is NOT investment
  */
 export function calculateTotalInvestment(
   client: {
     contract_start_date?: string;
     starter_pack_price?: number;
-    hardware_price?: number;
+    total_sold_amount?: number; // This is now "Montant d'installation" (sum of purchase prices)
+    hardware_price?: number; // Keep for backward compatibility, but use total_sold_amount if available
     products?: ClientProduct[];
   },
   allProducts: Product[] = []
@@ -70,10 +71,14 @@ export function calculateTotalInvestment(
     investment += client.starter_pack_price || 0;
   }
 
-  // Hardware Price is the manually entered value (what we invested in hardware)
+  // Montant d'installation = sum of hardware purchase prices (what we invested)
+  // Use total_sold_amount (which now stores installation amount) or hardware_price (backward compatibility)
   // This is included ONLY in month 1
-  if (contractStartDate && client.hardware_price !== undefined) {
-    investment += client.hardware_price || 0;
+  if (contractStartDate) {
+    const installationAmount = client.total_sold_amount !== undefined 
+      ? client.total_sold_amount 
+      : (client.hardware_price || 0);
+    investment += installationAmount;
   }
 
   return investment;

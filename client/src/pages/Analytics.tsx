@@ -21,8 +21,10 @@ import {
 import { useDashboardCounts } from "@/hooks/useDashboardCounts";
 import { useProducts } from "@/hooks/useProducts";
 import { useClients } from "@/hooks/useClients";
+import { useCategories } from "@/hooks/useCategories";
 import { useMemo, useState } from "react";
 import { formatCurrencyCompact, formatCurrencyFull } from "@/lib/utils";
+import { diffInMonths } from "@/lib/clientCalculations";
 
 const CHART_COLORS = [
   "hsl(var(--chart-1))",
@@ -36,6 +38,7 @@ export default function Analytics() {
   const { counts, isLoading: countsLoading } = useDashboardCounts();
   const { products, isLoading: productsLoading } = useProducts();
   const { clients, isLoading: clientsLoading } = useClients();
+  const { categories } = useCategories();
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   // Create a map of product_id to product for quick lookups
@@ -46,6 +49,24 @@ export default function Analytics() {
     });
     return map;
   }, [products]);
+
+  // Create a map of category_id to category name
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach((category) => {
+      map.set(category.id, category.name);
+    });
+    return map;
+  }, [categories]);
+
+  // Helper function to get category name from product
+  const getProductCategory = (product: any): string => {
+    if (product.category_id && categoryMap.has(product.category_id)) {
+      return categoryMap.get(product.category_id)!;
+    }
+    // Fallback to old category field or "Other"
+    return product.category?.trim() || "Other";
+  };
 
   // Group clients by product category (dynamically detect all categories)
   const categoryStats = useMemo(() => {
@@ -58,19 +79,43 @@ export default function Analytics() {
 
     // Aggregate client data by category
     clients.forEach((client) => {
-      let category = "Other";
-      if (client.product_id) {
+      // Get categories from client's products array
+      const clientCategories = new Set<string>();
+      
+      if (client.products && client.products.length > 0) {
+        // Use products array (new structure)
+        client.products.forEach((clientProduct) => {
+          const product = productMap.get(clientProduct.productId);
+          if (product) {
+            const category = getProductCategory(product);
+            clientCategories.add(category);
+          }
+        });
+      } else if (client.product_id) {
+        // Fallback to old product_id field (backward compatibility)
         const product = productMap.get(client.product_id);
         if (product) {
-          category = product.category?.trim() || "Other";
+          const category = getProductCategory(product);
+          clientCategories.add(category);
         }
       }
+      
+      // If no categories found, use "Other"
+      if (clientCategories.size === 0) {
+        clientCategories.add("Other");
+      }
 
-      const current = stats.get(category) || { revenue: 0, clientCount: 0, totalMonthsLeft: 0, category };
-      current.revenue += client.total_sold_amount;
-      current.clientCount += 1;
-      current.totalMonthsLeft += client.months_left;
-      stats.set(category, current);
+      // Add revenue to each category this client belongs to
+      // If client has multiple categories, distribute revenue proportionally
+      const categoryCount = clientCategories.size;
+      clientCategories.forEach((category) => {
+        const current = stats.get(category) || { revenue: 0, clientCount: 0, totalMonthsLeft: 0, category };
+        // Distribute revenue equally among categories if client has products from multiple categories
+        current.revenue += client.total_sold_amount / categoryCount;
+        current.clientCount += 1;
+        current.totalMonthsLeft += client.months_left;
+        stats.set(category, current);
+      });
     });
 
     return Array.from(stats.values()).sort((a, b) => a.category.localeCompare(b.category));
@@ -80,21 +125,60 @@ export default function Analytics() {
   const filteredClients = useMemo(() => {
     if (selectedCategory === "all") return clients;
     return clients.filter((client) => {
-      if (!client.product_id) {
-        return selectedCategory === "Other";
+      // Check products array first (new structure)
+      if (client.products && client.products.length > 0) {
+        return client.products.some((clientProduct) => {
+          const product = productMap.get(clientProduct.productId);
+          if (!product) return false;
+          const productCategory = getProductCategory(product);
+          return productCategory === selectedCategory;
+        });
       }
-      const product = productMap.get(client.product_id);
-      const productCategory = product?.category?.trim() || "Other";
-      return productCategory === selectedCategory;
+      // Fallback to old product_id field (backward compatibility)
+      if (client.product_id) {
+        const product = productMap.get(client.product_id);
+        if (!product) return selectedCategory === "Other";
+        const productCategory = getProductCategory(product);
+        return productCategory === selectedCategory;
+      }
+      // No products, check if "Other" is selected
+      return selectedCategory === "Other";
     });
   }, [clients, selectedCategory, productMap]);
 
   // Client value data - filtered by category
+  // Shows installation cost vs collected revenue
   const clientValueData = useMemo(() => {
-    return filteredClients.map((client) => ({
-      name: client.client_name,
-      value: client.total_sold_amount,
-    }));
+    return filteredClients.map((client) => {
+      const starterPack = client.starter_pack_price || 0;
+      const hardware = client.hardware_price || 0;
+      const monthlyFee = client.monthly_fee || 0;
+      
+      // Installation amount = starter pack + hardware
+      const installation = starterPack + hardware;
+      
+      // Calculate current revenue (collected amount)
+      let collected = 0;
+      if (client.contract_start_date) {
+        const contractStartDate = new Date(client.contract_start_date);
+        const today = new Date();
+        const monthsPassed = diffInMonths(contractStartDate, today);
+        
+        if (monthsPassed >= 0) {
+          const monthsCollected = monthsPassed + 1;
+          collected = starterPack + hardware + (monthlyFee * monthsCollected);
+        }
+      } else {
+        // No contract start date, assume 1 month collected
+        collected = starterPack + hardware + monthlyFee;
+      }
+      
+      return {
+        name: client.client_name,
+        installation,
+        collected,
+      };
+    });
   }, [filteredClients]);
 
   // Hardware distribution by category - percentage based
@@ -103,7 +187,7 @@ export default function Analytics() {
     
     const categoryCounts = new Map<string, number>();
     products.forEach((product) => {
-      const category = product.category?.trim() || "Other";
+      const category = getProductCategory(product);
       categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
     });
 
@@ -133,20 +217,41 @@ export default function Analytics() {
       }));
   }, [categoryStats]);
 
-  // Monthly trend - empty for now, can be enhanced with actual historical data
-  const monthlyTrend: Array<{ name: string; value: number }> = [];
-
   // Calculate revenue per client
   const clientRevenueData = useMemo(() => {
     return clients.map((client) => {
+      const starterPack = client.starter_pack_price || 0;
+      const hardware = client.hardware_price || 0; // Installation amount
       const monthlyFee = client.monthly_fee || 0;
-      const monthlyRevenue = monthlyFee; // Same as monthly fee
-      const yearlyRevenue = monthlyFee * 12;
+      
+      // Calculate current revenue based on months passed
+      // Formula: starter pack + hardware + (monthly fee * number of months collected)
+      // Example: If 2 months passed: starter pack + hardware + (monthly fee * 2)
+      let currentRevenue = 0;
+      if (client.contract_start_date) {
+        const contractStartDate = new Date(client.contract_start_date);
+        const today = new Date();
+        const monthsPassed = diffInMonths(contractStartDate, today);
+        
+        if (monthsPassed >= 0) {
+          // Number of months we've collected money for = monthsPassed + 1
+          // (monthsPassed = 0 means we're in the first month, so we've collected for 1 month)
+          const monthsCollected = monthsPassed + 1;
+          currentRevenue = starterPack + hardware + (monthlyFee * monthsCollected);
+        }
+      } else {
+        // No contract start date, just show starter pack + hardware + monthly fee (assume 1 month)
+        currentRevenue = starterPack + hardware + monthlyFee;
+      }
+      
+      const yearlyRevenue = monthlyFee * 12; // Annual projection
       
       return {
         clientName: client.client_name,
+        starterPack,
+        hardware,
         monthlyFee,
-        monthlyRevenue,
+        currentRevenue,
         yearlyRevenue,
       };
     });
@@ -182,7 +287,7 @@ export default function Analytics() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Toutes les catégories</SelectItem>
-            {Array.from(new Set(products.map(p => p.category?.trim() || "Other")))
+            {Array.from(new Set(products.map(p => getProductCategory(p))))
               .sort()
               .map((category) => (
                 <SelectItem key={category} value={category}>
@@ -242,6 +347,7 @@ export default function Analytics() {
         <InventoryChart
           title={selectedCategory === "all" ? "Valeur par Client" : `Valeur par Client (${selectedCategory})`}
           data={clientValueData}
+          showGroupedBars={true}
         />
 
         <Card>
@@ -333,24 +439,6 @@ export default function Analytics() {
           </CardContent>
         </Card>
 
-        {monthlyTrend.length > 0 ? (
-          <InventoryChart
-            title="Évolution de la Valeur Totale"
-            data={monthlyTrend}
-          />
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Évolution de la Valeur Totale</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                Aucune donnée historique disponible
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Statistiques par Catégorie</CardTitle>
@@ -405,8 +493,10 @@ export default function Analytics() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nom du Client</TableHead>
+                      <TableHead className="text-right">Starter Pack</TableHead>
+                      <TableHead className="text-right">Hardware</TableHead>
                       <TableHead className="text-right">Frais Mensuels</TableHead>
-                      <TableHead className="text-right">Revenu Mensuel</TableHead>
+                      <TableHead className="text-right">Revenu Actuel</TableHead>
                       <TableHead className="text-right">Revenu Annuel</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -415,10 +505,16 @@ export default function Analytics() {
                       <TableRow key={index}>
                         <TableCell className="font-medium">{client.clientName}</TableCell>
                         <TableCell className="text-right">
+                          {formatCurrencyFull(client.starterPack)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrencyFull(client.hardware)}
+                        </TableCell>
+                        <TableCell className="text-right">
                           {formatCurrencyFull(client.monthlyFee)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatCurrencyFull(client.monthlyRevenue)}
+                          {formatCurrencyFull(client.currentRevenue)}
                         </TableCell>
                         <TableCell className="text-right">
                           {formatCurrencyFull(client.yearlyRevenue)}

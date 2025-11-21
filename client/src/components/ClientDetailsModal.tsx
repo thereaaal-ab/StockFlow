@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Euro, Package, Calendar, CalendarClock, TrendingUp } from "lucide-react";
 import { Client } from "@/hooks/useClients";
-import { formatCurrencyFull } from "@/lib/utils";
+import { formatCurrencyFull, calculateProfitableDate } from "@/lib/utils";
 import { useProducts } from "@/hooks/useProducts";
 import { calculateClientMetrics } from "@/lib/clientCalculations";
 
@@ -65,7 +65,7 @@ export function ClientDetailsModal({
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Euro className="h-4 w-4" />
-                      <span>Montant Total Vendu</span>
+                      <span>Montant d'installation</span>
                     </div>
                     <p className="text-xl font-bold text-primary">
                       {formatCurrencyFull(client.total_sold_amount)}
@@ -97,10 +97,11 @@ export function ClientDetailsModal({
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      <span>Mois Restants</span>
+                      <span>Date de Rentabilité</span>
                     </div>
                     <p className="text-xl font-bold text-primary">
-                      {client.months_left} {client.months_left === 1 ? "mois" : "mois"}
+                      {calculateProfitableDate(client.contract_start_date, client.months_left) || 
+                        `${client.months_left} ${client.months_left === 1 ? "mois" : "mois"}`}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       (calculé automatiquement)
@@ -160,7 +161,7 @@ export function ClientDetailsModal({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Starter Pack: {formatCurrencyFull(client.starter_pack_price || 0)} • 
-                            Investissement Hardware: {formatCurrencyFull(client.hardware_price || 0)}
+                            Montant d'installation: {formatCurrencyFull(client.total_sold_amount || 0)}
                           </p>
                         </div>
                       </div>
