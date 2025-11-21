@@ -37,7 +37,7 @@ export function ClientDetailsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
@@ -160,35 +160,22 @@ export function ClientDetailsModal({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Starter Pack: {formatCurrencyFull(client.starter_pack_price || 0)} • 
-                            Investissement Hardware: {formatCurrencyFull(metrics.total_investment - (client.starter_pack_price || 0))}
+                            Investissement Hardware: {formatCurrencyFull(client.hardware_price || 0)}
                           </p>
-                          <div className="mt-2 space-y-1">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-muted-foreground">Revenu Mois 1:</span>
-                              <span className="font-medium">{formatCurrencyFull(metrics.first_month_revenue)}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-muted-foreground">Revenu Cumulatif:</span>
-                              <span className="font-medium">{formatCurrencyFull(metrics.cumulative_revenue)}</span>
-                            </div>
-                            <div className="mt-2 pt-2 border-t">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">Mois Passés:</span>
-                                <span className="font-medium">{metrics.months_passed}</span>
-                              </div>
-                              <div className="flex items-center justify-between text-xs mt-1">
-                                <span className="text-muted-foreground">Statut:</span>
-                                <span className={`font-medium ${metrics.is_profitable ? 'text-green-500' : 'text-red-500'}`}>
-                                  {metrics.is_profitable ? '✓ Profitable' : '✗ En cours de couverture'}
-                                </span>
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {metrics.cumulative_revenue >= metrics.total_investment 
-                                  ? `Revenu (${formatCurrencyFull(metrics.cumulative_revenue)}) >= Investissement (${formatCurrencyFull(metrics.total_investment)})`
-                                  : `Revenu (${formatCurrencyFull(metrics.cumulative_revenue)}) < Investissement (${formatCurrencyFull(metrics.total_investment)})`}
-                              </div>
-                            </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Euro className="h-4 w-4" />
+                            <span>Profit</span>
                           </div>
+                          <p className="text-lg font-bold text-green-500">
+                            {formatCurrencyFull(client.monthly_fee || 0)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Frais mensuels du client (profit mensuel)
+                          </p>
                         </div>
                       </div>
                     </div>
