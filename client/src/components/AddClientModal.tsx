@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -67,7 +67,10 @@ export function AddClientModal() {
     Object.values(productDetails).forEach((detail) => {
       // Always use purchase_price for installation amount (what we paid for hardware)
       installation += detail.purchasePrice * detail.quantity;
-      fee += detail.monthlyFee;
+      // Monthly fee is per product, not per unit - just sum the monthlyFee values
+      // Ensure monthlyFee is a valid number
+      const monthlyFee = typeof detail.monthlyFee === 'number' ? detail.monthlyFee : parseFloat(String(detail.monthlyFee)) || 0;
+      fee += monthlyFee; // Sum directly, do NOT multiply by quantity
       qty += detail.quantity;
     });
 
@@ -77,6 +80,7 @@ export function AddClientModal() {
       totalProductQuantity: qty,
     };
   }, [productDetails]);
+
 
   // Calculate months_left automatically using new cash flow logic
   // Investment = installation costs (negative)
@@ -608,7 +612,9 @@ export function AddClientModal() {
                   data-testid="input-monthly-fee"
                 />
                 <p className="text-xs text-muted-foreground">
-                  {manualTotalMonthlyFee !== null ? "Valeur manuelle" : "Calculé automatiquement"}
+                  {manualTotalMonthlyFee !== null 
+                    ? "Valeur manuelle (modifiable)" 
+                    : `Calculé automatiquement: somme des frais mensuels de tous les produits`}
                 </p>
               </div>
             </div>

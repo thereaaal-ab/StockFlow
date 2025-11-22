@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ProductMultiSelect } from "@/components/ProductMultiSelect";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { calculateTotalMonthlyFeeFromProducts } from "@/lib/clientCalculations";
 
 interface SelectedProduct {
   productId: string;
@@ -75,10 +76,19 @@ export function EditClientModal({
       setHardwarePrice(client.hardware_price?.toString() || "");
       setContractStartDate(client.contract_start_date ? client.contract_start_date.split('T')[0] : "");
       setStatus((client.status as "active" | "inactive") || "active");
+      
+      // Calculate total monthly fee from products to determine if monthly_fee was manually set
+      const calculatedMonthlyFee = calculateTotalMonthlyFeeFromProducts(client);
+      const clientMonthlyFee = client.monthly_fee || 0;
+      
+      // Only set manualTotalMonthlyFee if it's different from calculated value (meaning it was manually set)
+      // If they're the same or client.monthly_fee is 0, use null to show calculated value
+      const isManualMonthlyFee = clientMonthlyFee > 0 && Math.abs(clientMonthlyFee - calculatedMonthlyFee) > 0.01;
+      
       // Initialize manual values with saved client values (they will be displayed in the inputs)
       // The inputs will show these values, and if user edits them, they'll be saved
       setManualTotalSoldAmount(client.total_sold_amount?.toString() || null);
-      setManualTotalMonthlyFee(client.monthly_fee?.toString() || null);
+      setManualTotalMonthlyFee(isManualMonthlyFee ? client.monthly_fee?.toString() || null : null);
       setIsEditingSoldAmount(false);
       setIsEditingMonthlyFee(false);
       setErrors({});
@@ -127,7 +137,10 @@ export function EditClientModal({
     Object.values(productDetails).forEach((detail) => {
       // Always use purchase_price for installation amount (what we paid for hardware)
       installation += detail.purchasePrice * detail.quantity;
-      fee += detail.monthlyFee;
+      // Monthly fee is per product, not per unit - just sum the monthlyFee values
+      // Ensure monthlyFee is a valid number
+      const monthlyFee = typeof detail.monthlyFee === 'number' ? detail.monthlyFee : parseFloat(String(detail.monthlyFee)) || 0;
+      fee += monthlyFee; // Sum directly, do NOT multiply by quantity
       qty += detail.quantity;
     });
 
@@ -677,7 +690,9 @@ export function EditClientModal({
                   className="bg-muted"
                 />
                 <p className="text-xs text-muted-foreground">
-                  {manualTotalMonthlyFee !== null ? "Valeur sauvegardée" : "Calculé automatiquement"}
+                  {manualTotalMonthlyFee !== null 
+                    ? "Valeur manuelle (modifiable)" 
+                    : `Calculé automatiquement: somme des frais mensuels de tous les produits`}
                 </p>
               </div>
             </div>

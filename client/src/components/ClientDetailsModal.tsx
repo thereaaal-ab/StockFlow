@@ -11,7 +11,7 @@ import { Users, Euro, Package, Calendar, CalendarClock, TrendingUp } from "lucid
 import { Client } from "@/hooks/useClients";
 import { formatCurrencyFull, calculateProfitableDate } from "@/lib/utils";
 import { useProducts } from "@/hooks/useProducts";
-import { calculateClientMetrics } from "@/lib/clientCalculations";
+import { calculateClientMetrics, calculateTotalMonthlyFeeFromProducts } from "@/lib/clientCalculations";
 
 interface ClientDetailsModalProps {
   open: boolean;
@@ -34,6 +34,15 @@ export function ClientDetailsModal({
 
   // Calculate client metrics for display
   const metrics = calculateClientMetrics(client, products);
+  
+  // Calculate total monthly fee from products (auto-calculated)
+  const calculatedMonthlyFee = calculateTotalMonthlyFeeFromProducts(client);
+  
+  // Use calculated monthly fee if client.monthly_fee is not set or is 0
+  // This allows manual override while defaulting to calculated value
+  const displayMonthlyFee = client.monthly_fee && client.monthly_fee > 0 
+    ? client.monthly_fee 
+    : calculatedMonthlyFee;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -75,11 +84,18 @@ export function ClientDetailsModal({
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Euro className="h-4 w-4" />
-                      <span>Frais Mensuels</span>
+                      <span>Frais Mensuels Totaux (€)</span>
                     </div>
                     <p className="text-xl font-bold">
-                      {formatCurrencyFull(client.monthly_fee)}
+                      {formatCurrencyFull(displayMonthlyFee)}
                     </p>
+                    {calculatedMonthlyFee > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {client.monthly_fee && client.monthly_fee > 0 
+                          ? `Valeur manuelle (calculé: ${formatCurrencyFull(calculatedMonthlyFee)})`
+                          : `Calculé automatiquement depuis les produits`}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -237,7 +253,7 @@ export function ClientDetailsModal({
                             +{formatCurrencyFull(metrics.profit_mensuel)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Frais mensuels du client (profit mensuel)
+                            Frais mensuels totaux du client (profit mensuel)
                           </p>
                         </div>
                       </div>

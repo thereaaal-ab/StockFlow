@@ -38,6 +38,11 @@ export default function Dashboard() {
     return clients.reduce((sum, client) => sum + (client.starter_pack_price || 0), 0);
   }, [clients]);
 
+  // Calculate total hardware sales revenue (Revenu Vente Materiel)
+  const totalHardwareSalesRevenue = useMemo(() => {
+    return clients.reduce((sum, client) => sum + (client.hardware_price || 0), 0);
+  }, [clients]);
+
   // Count active clients
   const activeClientsCount = useMemo(() => {
     return clients.filter((client) => (client.status || "active") === "active").length;
@@ -64,7 +69,7 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           title="Revenu Mensuel Total"
           value={clientsLoading ? "..." : formatCurrencyCompact(totalMonthlyRevenue)}
@@ -76,6 +81,12 @@ export default function Dashboard() {
           value={clientsLoading ? "..." : formatCurrencyCompact(totalStarterPackRevenue)}
           icon={Euro}
           testId="card-starter-pack-revenue"
+        />
+        <StatCard
+          title="Revenu Vente Materiel"
+          value={clientsLoading ? "..." : formatCurrencyCompact(totalHardwareSalesRevenue)}
+          icon={Euro}
+          testId="card-hardware-sales-revenue"
         />
         <StatCard
           title="Commissions Total"

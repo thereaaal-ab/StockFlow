@@ -55,6 +55,27 @@ function isInFirstMonth(date: Date, contractStartDate: Date): boolean {
 }
 
 /**
+ * Calculate total monthly fee from all products assigned to a client
+ * Total = sum of monthlyFee for each product (NOT multiplied by quantity)
+ * The monthly fee is per product, not per unit
+ */
+export function calculateTotalMonthlyFeeFromProducts(
+  client: {
+    products?: ClientProduct[];
+  }
+): number {
+  if (!client.products || client.products.length === 0) {
+    return 0;
+  }
+  
+  return client.products.reduce((total, product) => {
+    const monthlyFee = typeof product.monthlyFee === 'number' ? product.monthlyFee : parseFloat(String(product.monthlyFee)) || 0;
+    // Sum the monthlyFee directly, do NOT multiply by quantity
+    return total + monthlyFee;
+  }, 0);
+}
+
+/**
  * Calculate installation costs (NEGATIVE - what we spent)
  * Installation costs = sum of purchase prices of all hardware installed
  * Example: Kiosk 500€ + Printer 500€ = -1000€
@@ -181,11 +202,25 @@ export function calculateClientMetrics(
     monthsPassed = diffInMonths(contractStartDate, today);
   }
 
-  // Calculate first month revenue
-  const firstMonthRevenue = calculateFirstMonthRevenue(client, allProducts);
+  // Calculate total monthly fee from products (auto-calculated)
+  const calculatedMonthlyFee = calculateTotalMonthlyFeeFromProducts(client);
+  
+  // Use manual monthly_fee if set, otherwise use calculated value from products
+  const monthlyFee = client.monthly_fee && client.monthly_fee > 0 
+    ? client.monthly_fee 
+    : calculatedMonthlyFee;
 
-  // Calculate cumulative revenue
-  const cumulativeRevenue = calculateCumulativeRevenue(client, allProducts);
+  // Calculate first month revenue (using the effective monthly fee)
+  const firstMonthRevenue = calculateFirstMonthRevenue(
+    { ...client, monthly_fee: monthlyFee },
+    allProducts
+  );
+
+  // Calculate cumulative revenue (using the effective monthly fee)
+  const cumulativeRevenue = calculateCumulativeRevenue(
+    { ...client, monthly_fee: monthlyFee },
+    allProducts
+  );
 
   // Calculate installation costs (NEGATIVE - what we spent)
   const installationCosts = calculateInstallationCosts(client, allProducts);
@@ -198,7 +233,6 @@ export function calculateClientMetrics(
   // Use the hardware_price field directly (what client pays for hardware)
   const starterPack = client.starter_pack_price || 0;
   const hardwareSell = client.hardware_price || 0; // What client pays for hardware
-  const monthlyFee = client.monthly_fee || 0;
   
   // Profit One Shot = first month benefits (ONLY first month)
   const profitOneShot = starterPack + hardwareSell + monthlyFee;
