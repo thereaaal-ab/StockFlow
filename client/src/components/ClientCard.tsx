@@ -104,7 +104,8 @@ export function ClientCard({
               <span>Date de Rentabilité</span>
             </div>
             <p className="text-lg font-bold text-primary">
-              {calculateProfitableDate(client.contract_start_date, client.months_left) || 
+              {metrics.profitability_date || 
+                calculateProfitableDate(client.contract_start_date, client.months_left) || 
                 `${client.months_left} ${client.months_left === 1 ? "mois" : "mois"}`}
             </p>
             <p className="text-xs text-muted-foreground">(calculé automatiquement)</p>
