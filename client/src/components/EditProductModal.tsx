@@ -239,7 +239,7 @@ export function EditProductModal({
                 <Select
                   value={formData.category_id}
                   onValueChange={(value) => setFormData({ ...formData, category_id: value })}
-                  required
+                required
                 >
                   <SelectTrigger id="edit-category" data-testid="select-edit-category">
                     <SelectValue placeholder="Sélectionner une catégorie" />

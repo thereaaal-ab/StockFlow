@@ -100,7 +100,8 @@ export function ClientDetailsModal({
                       <span>Date de Rentabilité</span>
                     </div>
                     <p className="text-xl font-bold text-primary">
-                      {calculateProfitableDate(client.contract_start_date, client.months_left) || 
+                      {metrics.profitability_date || 
+                        calculateProfitableDate(client.contract_start_date, client.months_left) || 
                         `${client.months_left} ${client.months_left === 1 ? "mois" : "mois"}`}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -202,12 +203,27 @@ export function ClientDetailsModal({
                             <Euro className="h-4 w-4" />
                             <span>Investissement Total</span>
                           </div>
-                          <p className="text-lg font-bold">
-                            {formatCurrencyFull(metrics.total_investment)}
+                          <p className="text-lg font-bold text-red-500">
+                            -{formatCurrencyFull(metrics.total_investment)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Coûts d'installation uniquement (prix d'achat)
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Euro className="h-4 w-4" />
+                            <span>Profit One Shot</span>
+                          </div>
+                          <p className="text-lg font-bold text-green-500">
+                            +{formatCurrencyFull(metrics.profit_one_shot)}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Starter Pack: {formatCurrencyFull(client.starter_pack_price || 0)} • 
-                            Hardware: {formatCurrencyFull(client.hardware_price || 0)}
+                            Hardware: {formatCurrencyFull(client.hardware_price || 0)} • 
+                            Frais Mensuels: {formatCurrencyFull(client.monthly_fee || 0)}
                           </p>
                         </div>
                       </div>
@@ -218,7 +234,7 @@ export function ClientDetailsModal({
                             <span>Profit Mensuel</span>
                           </div>
                           <p className="text-lg font-bold text-green-500">
-                            {formatCurrencyFull(client.monthly_fee || 0)}
+                            +{formatCurrencyFull(metrics.profit_mensuel)}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Frais mensuels du client (profit mensuel)
