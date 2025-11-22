@@ -138,16 +138,43 @@ export function EditClientModal({
     };
   }, [productDetails]);
 
-  // Calculate months_left automatically
+  // Calculate months_left automatically using new cash flow logic
+  // Investment = installation costs (negative)
+  // Profit One Shot = Starter pack + Hardware sell + Monthly fee (first month)
+  // If covered in first month: 0 months
+  // Otherwise: 1 (first month) + additional months needed
   const monthsLeft = useMemo(() => {
-    if (totalMonthlyFee > 0) {
-      const finalInstallation = manualTotalSoldAmount !== null && manualTotalSoldAmount !== "" 
-        ? parseFloat(manualTotalSoldAmount) 
-        : installationAmount;
-      return Math.ceil(finalInstallation / totalMonthlyFee);
+    const finalInstallation = manualTotalSoldAmount !== null && manualTotalSoldAmount !== "" 
+      ? parseFloat(manualTotalSoldAmount) 
+      : installationAmount;
+    const finalMonthlyFee = manualTotalMonthlyFee !== null && manualTotalMonthlyFee !== "" 
+      ? parseFloat(manualTotalMonthlyFee) 
+      : totalMonthlyFee;
+    
+    if (finalMonthlyFee <= 0) {
+      return 0;
     }
-    return 0;
-  }, [installationAmount, totalMonthlyFee, manualTotalSoldAmount]);
+    
+    // Calculate Profit One Shot (first month benefits)
+    const starterPack = starterPackPrice ? parseFloat(starterPackPrice) : 0;
+    const hardwareSell = hardwarePrice ? parseFloat(hardwarePrice) : 0;
+    const profitOneShot = starterPack + hardwareSell + finalMonthlyFee;
+    
+    // Net after first month: Profit One Shot - Investment
+    const netMonth1 = profitOneShot - finalInstallation;
+    
+    if (netMonth1 >= 0) {
+      // Covered in first month
+      return 0;
+    } else {
+      // Not covered, need additional months
+      // Remaining balance after month 1
+      const remainingBalance = -netMonth1; // Positive number
+      // Additional months needed: Math.ceil(remainingBalance / monthlyFee)
+      // Total: 1 (first month) + additional months
+      return 1 + Math.ceil(remainingBalance / finalMonthlyFee);
+    }
+  }, [installationAmount, totalMonthlyFee, manualTotalSoldAmount, manualTotalMonthlyFee, starterPackPrice, hardwarePrice]);
 
   // Handle product selection change
   const handleProductSelectionChange = (productIds: string[]) => {

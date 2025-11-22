@@ -104,61 +104,23 @@ export function calculateTotalInvestment(
 
 /**
  * Calculate first month revenue
- * first_month_revenue = starter_pack_price + sum(hardware_client_price) + monthly_fee
- * Where hardware_client_price = the price the client pays (sell or rent)
+ * first_month_revenue = starter_pack_price + hardware_price + monthly_fee
+ * Where hardware_price = what the client pays for hardware (from client.hardware_price field)
  */
 export function calculateFirstMonthRevenue(
   client: {
-    contract_start_date?: string;
     starter_pack_price?: number;
+    hardware_price?: number;
     monthly_fee?: number;
-    products?: ClientProduct[];
   },
   allProducts: Product[] = []
 ): number {
-  let revenue = 0;
-  const contractStartDate = client.contract_start_date 
-    ? new Date(client.contract_start_date) 
-    : null;
+  // Use the hardware_price field directly (what client pays for hardware)
+  const starterPack = client.starter_pack_price || 0;
+  const hardwareSell = client.hardware_price || 0;
+  const monthlyFee = client.monthly_fee || 0;
 
-  // Starter pack price
-  revenue += client.starter_pack_price || 0;
-
-  // Sum of hardware client prices (what client pays - buy or rent) for month 1 only
-  if (client.products && contractStartDate) {
-    client.products.forEach((clientProduct) => {
-      // Determine if this product was added in month 1
-      let isMonth1 = true;
-      if (clientProduct.addedAt) {
-        const addedDate = new Date(clientProduct.addedAt);
-        isMonth1 = isInFirstMonth(addedDate, contractStartDate);
-      }
-
-      if (isMonth1) {
-        // Use stored clientPrice if available (what client actually paid)
-        let clientPrice = clientProduct.clientPrice;
-        if (clientPrice === undefined) {
-          // Fallback: calculate from product prices
-          const product = allProducts.find((p) => p.id === clientProduct.productId);
-          if (product) {
-            // Client pays: rent price if renting, or selling price if buying
-            // Based on user's example: "Hardware sell 400" means selling price
-            clientPrice = clientProduct.type === "rent" 
-              ? (product.rent_price || 0)
-              : (product.selling_price || 0);
-          } else {
-            clientPrice = 0;
-          }
-        }
-        revenue += clientPrice * (clientProduct.quantity || 0);
-      }
-    });
-  }
-
-  // Monthly fee
-  revenue += client.monthly_fee || 0;
-
-  return revenue;
+  return starterPack + hardwareSell + monthlyFee;
 }
 
 /**
@@ -170,8 +132,8 @@ export function calculateCumulativeRevenue(
   client: {
     contract_start_date?: string;
     starter_pack_price?: number;
+    hardware_price?: number;
     monthly_fee?: number;
-    products?: ClientProduct[];
   },
   allProducts: Product[] = []
 ): number {
@@ -184,39 +146,11 @@ export function calculateCumulativeRevenue(
     return 0;
   }
 
-  // Calculate first month revenue
-  let firstMonthRevenue = client.starter_pack_price || 0;
-  firstMonthRevenue += client.monthly_fee || 0;
-
-  // Add hardware client prices for month 1 only
-  if (client.products) {
-    client.products.forEach((clientProduct) => {
-      const product = allProducts.find((p) => p.id === clientProduct.productId);
-      if (!product) return;
-
-      // Determine if this product was added in month 1
-      let isMonth1 = true;
-      if (clientProduct.addedAt) {
-        const addedDate = new Date(clientProduct.addedAt);
-        isMonth1 = isInFirstMonth(addedDate, contractStartDate);
-      }
-
-      if (isMonth1) {
-        // Use stored clientPrice if available (what client actually paid)
-        // Otherwise calculate from product prices
-        let clientPrice = clientProduct.clientPrice;
-        if (clientPrice === undefined) {
-          // Fallback: calculate from product prices
-          // Client pays: rent price if renting, or selling price if buying
-          // Based on user's example: "Hardware sell 400" means selling price
-          clientPrice = clientProduct.type === "rent" 
-            ? (product.rent_price || 0)
-            : (product.selling_price || 0);
-        }
-        firstMonthRevenue += clientPrice * (clientProduct.quantity || 0);
-      }
-    });
-  }
+  // Calculate first month revenue: Starter pack + Hardware + Monthly fee
+  const starterPack = client.starter_pack_price || 0;
+  const hardwareSell = client.hardware_price || 0;
+  const monthlyFee = client.monthly_fee || 0;
+  const firstMonthRevenue = starterPack + hardwareSell + monthlyFee;
 
   // Calculate months passed
   const today = new Date();
@@ -224,7 +158,6 @@ export function calculateCumulativeRevenue(
 
   // Cumulative revenue = first month revenue + (months_passed - 1) * monthly_fee
   // (subtract 1 because first month is already included)
-  const monthlyFee = client.monthly_fee || 0;
   const subsequentMonthsRevenue = Math.max(0, monthsPassed - 1) * monthlyFee;
 
   return firstMonthRevenue + subsequentMonthsRevenue;
@@ -248,9 +181,6 @@ export function calculateClientMetrics(
     monthsPassed = diffInMonths(contractStartDate, today);
   }
 
-  // Calculate total investment
-  const totalInvestment = calculateTotalInvestment(client, allProducts);
-
   // Calculate first month revenue
   const firstMonthRevenue = calculateFirstMonthRevenue(client, allProducts);
 
@@ -264,42 +194,14 @@ export function calculateClientMetrics(
   const totalInvestment = installationCosts;
 
   // Calculate Profit One Shot (first month benefits)
-  // Starter pack + Hardware sell price + Monthly fee
+  // Starter pack + Hardware (what client pays) + Monthly fee
+  // Use the hardware_price field directly (what client pays for hardware)
   const starterPack = client.starter_pack_price || 0;
+  const hardwareSell = client.hardware_price || 0; // What client pays for hardware
   const monthlyFee = client.monthly_fee || 0;
   
-  // Calculate hardware sell price (what client pays for hardware)
-  let hardwareSellPrice = 0;
-  if (client.products && contractStartDate) {
-    client.products.forEach((clientProduct) => {
-      // Determine if this product was added in month 1
-      let isMonth1 = true;
-      if (clientProduct.addedAt) {
-        const addedDate = new Date(clientProduct.addedAt);
-        isMonth1 = isInFirstMonth(addedDate, contractStartDate);
-      }
-
-      if (isMonth1) {
-        // Use stored clientPrice if available (what client actually paid)
-        let clientPrice = clientProduct.clientPrice;
-        if (clientPrice === undefined) {
-          const product = allProducts.find((p) => p.id === clientProduct.productId);
-          if (product) {
-            // Client pays: rent price if renting, or selling price if buying
-            clientPrice = clientProduct.type === "rent" 
-              ? (product.rent_price || 0)
-              : (product.selling_price || 0);
-          } else {
-            clientPrice = 0;
-          }
-        }
-        hardwareSellPrice += clientPrice * (clientProduct.quantity || 0);
-      }
-    });
-  }
-  
-  // Profit One Shot = first month benefits
-  const profitOneShot = starterPack + hardwareSellPrice + monthlyFee;
+  // Profit One Shot = first month benefits (ONLY first month)
+  const profitOneShot = starterPack + hardwareSell + monthlyFee;
   
   // Profit Mensuel = monthly fee only
   const profitMensuel = monthlyFee;
@@ -319,7 +221,12 @@ export function calculateClientMetrics(
       totalRevenue = profitOneShot;
       netCashFlow = month1Net;
       monthsToCover = 0;
-      profitabilityDate = "Dans le mois";
+      // Show contract start date (covered in first month)
+      profitabilityDate = contractStartDate.toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
     } else {
       // Not covered in first month, need to calculate when it will be covered
       let remainingBalance = -month1Net; // Positive number (debt to cover)
@@ -345,16 +252,19 @@ export function calculateClientMetrics(
       // Month 2+: monthlyFee each month until covered
       netCashFlow = profitOneShot - installationCosts + (monthsToCover * monthlyFee);
       
-      // Calculate profitability date (monthsToCover months from start)
-      if (monthsToCover > 0) {
-        const profitableDate = new Date(contractStartDate);
-        profitableDate.setMonth(profitableDate.getMonth() + monthsToCover);
-        profitabilityDate = profitableDate.toLocaleDateString("fr-FR", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        });
+      // Calculate profitability date
+      // monthsToCover = total months needed (including first month)
+      // Example: Start Nov 22, monthsToCover = 3 → Nov 22 + 2 months = Jan 22
+      const profitableDate = new Date(contractStartDate);
+      // Add (monthsToCover - 1) months because month 1 is already the start date
+      if (monthsToCover > 1) {
+        profitableDate.setMonth(profitableDate.getMonth() + (monthsToCover - 1));
       }
+      profitabilityDate = profitableDate.toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
     }
     
     // Add revenue from months already passed beyond coverage
@@ -369,12 +279,26 @@ export function calculateClientMetrics(
     netCashFlow = profitOneShot - installationCosts;
     if (netCashFlow >= 0) {
       monthsToCover = 0;
-      profitabilityDate = "Dans le mois";
+      // If no contract start date but covered, use today's date
+      const today = new Date();
+      profitabilityDate = today.toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
     } else {
       // Calculate months to cover
       const remainingBalance = -netCashFlow;
       monthsToCover = Math.ceil(remainingBalance / monthlyFee);
-      profitabilityDate = null;
+      // If no contract start date, use today's date + monthsToCover
+      const today = new Date();
+      const profitableDate = new Date(today);
+      profitableDate.setMonth(profitableDate.getMonth() + monthsToCover);
+      profitabilityDate = profitableDate.toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
     }
   }
 
