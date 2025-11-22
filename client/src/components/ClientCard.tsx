@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Package, Euro, Calendar, Edit, Trash2 } from "lucide-react";
 import { formatCurrencyCompact, calculateProfitableDate } from "@/lib/utils";
-import { calculateClientMetrics } from "@/lib/clientCalculations";
+import { calculateClientMetrics, calculateTotalMonthlyFeeFromProducts } from "@/lib/clientCalculations";
 import { Client } from "@/hooks/useClients";
 import { useProducts } from "@/hooks/useProducts";
 import {
@@ -38,6 +38,15 @@ export function ClientCard({
   
   // Calculate client metrics for status display
   const metrics = calculateClientMetrics(client, products);
+  
+  // Calculate total monthly fee from products (auto-calculated)
+  const calculatedMonthlyFee = calculateTotalMonthlyFeeFromProducts(client);
+  
+  // Use calculated monthly fee if client.monthly_fee is not set or is 0
+  // This allows manual override while defaulting to calculated value
+  const displayMonthlyFee = client.monthly_fee && client.monthly_fee > 0 
+    ? client.monthly_fee 
+    : calculatedMonthlyFee;
 
   return (
     <Card className="hover-elevate" data-testid={`card-client-${client.client_name.toLowerCase().replace(/\s+/g, "-")}`}>
@@ -69,9 +78,9 @@ export function ClientCard({
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Euro className="h-4 w-4" />
-              <span>Frais Mensuels</span>
+              <span>Frais Mensuels Totaux</span>
             </div>
-            <p className="text-lg font-bold">{formatCurrencyCompact(client.monthly_fee)}</p>
+            <p className="text-lg font-bold">{formatCurrencyCompact(displayMonthlyFee)}</p>
           </div>
         </div>
         {client.contract_start_date && (
