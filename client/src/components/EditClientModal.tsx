@@ -38,6 +38,7 @@ interface SelectedProduct {
   rentPrice: number; // Rental price (what we charge for rent)
   type: "buy" | "rent"; // "buy" for purchase, "rent" for rental
   originalQuantity: number; // Original quantity from client (for stock calculation)
+  originalType: "buy" | "rent"; // Original type from client (for hardware_total calculation)
 }
 
 interface EditClientModalProps {
@@ -55,13 +56,14 @@ export function EditClientModal({
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [productDetails, setProductDetails] = useState<Record<string, SelectedProduct>>({});
   const [starterPackPrice, setStarterPackPrice] = useState("");
-  const [hardwarePrice, setHardwarePrice] = useState("");
   const [contractStartDate, setContractStartDate] = useState("");
   const [status, setStatus] = useState<"active" | "inactive">("active");
   const [manualTotalSoldAmount, setManualTotalSoldAmount] = useState<string | null>(null);
   const [manualTotalMonthlyFee, setManualTotalMonthlyFee] = useState<string | null>(null);
+  const [manualHardwarePrice, setManualHardwarePrice] = useState<string | null>(null);
   const [isEditingSoldAmount, setIsEditingSoldAmount] = useState(false);
   const [isEditingMonthlyFee, setIsEditingMonthlyFee] = useState(false);
+  const [isEditingHardwarePrice, setIsEditingHardwarePrice] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const { products, updateProduct } = useProducts();
@@ -73,7 +75,6 @@ export function EditClientModal({
     if (client && open) {
       setClientName(client.client_name || "");
       setStarterPackPrice(client.starter_pack_price?.toString() || "");
-      setHardwarePrice(client.hardware_price?.toString() || "");
       setContractStartDate(client.contract_start_date ? client.contract_start_date.split('T')[0] : "");
       setStatus((client.status as "active" | "inactive") || "active");
       
@@ -89,8 +90,11 @@ export function EditClientModal({
       // The inputs will show these values, and if user edits them, they'll be saved
       setManualTotalSoldAmount(client.total_sold_amount?.toString() || null);
       setManualTotalMonthlyFee(isManualMonthlyFee ? client.monthly_fee?.toString() || null : null);
+      // Initialize hardware price - if client has a saved value, use it; otherwise it will be calculated
+      setManualHardwarePrice(client.hardware_price?.toString() || null);
       setIsEditingSoldAmount(false);
       setIsEditingMonthlyFee(false);
+      setIsEditingHardwarePrice(false);
       setErrors({});
 
       // Initialize products from client
@@ -114,6 +118,7 @@ export function EditClientModal({
               rentPrice: product.rent_price ?? 0,
               type: clientProduct.type || "buy", // Default to buy if not specified
               originalQuantity: clientProduct.quantity, // Store original for stock calculation
+              originalType: clientProduct.type || "buy", // Store original type for hardware_total calculation
             };
           }
         });
@@ -128,15 +133,20 @@ export function EditClientModal({
   }, [client, open, products]);
 
   // Calculate totals from selected products
-  // Montant d'installation = sum of all hardware purchase prices (what we paid)
-  const { installationAmount, totalMonthlyFee, totalProductQuantity } = useMemo(() => {
-    let installation = 0; // Sum of purchase prices (what we invested)
+  // Montant d'installation = sum of purchase prices for products where type = "buy" (what we paid)
+  // Hardware Price = sum of purchase prices for products where type = "buy" (what client pays)
+  const { installationAmount, totalMonthlyFee, totalProductQuantity, calculatedHardwarePrice } = useMemo(() => {
+    let installation = 0; // Sum of purchase prices for buy products (what we invested)
     let fee = 0;
     let qty = 0;
+    let hardwarePrice = 0; // Sum of purchase prices for buy products (what client pays)
 
     Object.values(productDetails).forEach((detail) => {
-      // Always use purchase_price for installation amount (what we paid for hardware)
-      installation += detail.purchasePrice * detail.quantity;
+      // Only include buy products in installation amount and hardware price
+      if (detail.type === "buy") {
+        installation += detail.purchasePrice * detail.quantity;
+        hardwarePrice += detail.purchasePrice * detail.quantity;
+      }
       // Monthly fee is per product, not per unit - just sum the monthlyFee values
       // Ensure monthlyFee is a valid number
       const monthlyFee = typeof detail.monthlyFee === 'number' ? detail.monthlyFee : parseFloat(String(detail.monthlyFee)) || 0;
@@ -148,6 +158,7 @@ export function EditClientModal({
       installationAmount: installation,
       totalMonthlyFee: fee,
       totalProductQuantity: qty,
+      calculatedHardwarePrice: hardwarePrice,
     };
   }, [productDetails]);
 
@@ -170,7 +181,10 @@ export function EditClientModal({
     
     // Calculate Profit One Shot (first month benefits)
     const starterPack = starterPackPrice ? parseFloat(starterPackPrice) : 0;
-    const hardwareSell = hardwarePrice ? parseFloat(hardwarePrice) : 0;
+    const finalHardwarePrice = manualHardwarePrice !== null && manualHardwarePrice !== "" 
+      ? parseFloat(manualHardwarePrice) 
+      : calculatedHardwarePrice;
+    const hardwareSell = finalHardwarePrice || 0;
     const profitOneShot = starterPack + hardwareSell + finalMonthlyFee;
     
     // Net after first month: Profit One Shot - Investment
@@ -187,7 +201,7 @@ export function EditClientModal({
       // Total: 1 (first month) + additional months
       return 1 + Math.ceil(remainingBalance / finalMonthlyFee);
     }
-  }, [installationAmount, totalMonthlyFee, manualTotalSoldAmount, manualTotalMonthlyFee, starterPackPrice, hardwarePrice]);
+  }, [installationAmount, totalMonthlyFee, calculatedHardwarePrice, manualTotalSoldAmount, manualTotalMonthlyFee, manualHardwarePrice, starterPackPrice]);
 
   // Handle product selection change
   const handleProductSelectionChange = (productIds: string[]) => {
@@ -212,6 +226,7 @@ export function EditClientModal({
             rentPrice: product.rent_price ?? 0,
             type: "buy", // Default to buy
             originalQuantity: 0, // New product, no original quantity
+            originalType: "buy", // New product, default type
           };
         }
       }
@@ -238,6 +253,9 @@ export function EditClientModal({
       [productId]: {
         ...detail,
         type,
+        // Clear monthly fee when switching to "buy"
+        monthlyFee: type === "buy" ? 0 : detail.monthlyFee,
+        monthlyFeeDisplay: type === "buy" ? "" : detail.monthlyFeeDisplay,
       },
     });
   };
@@ -402,6 +420,11 @@ export function EditClientModal({
         ? parseFloat(manualTotalMonthlyFee) 
         : totalMonthlyFee;
       const finalMonthsLeft = finalTotalMonthlyFee > 0 ? Math.ceil(finalInstallationAmount / finalTotalMonthlyFee) : monthsLeft;
+      
+      // Use manually entered hardware price if provided, otherwise use calculated value
+      const finalHardwarePrice = manualHardwarePrice !== null && manualHardwarePrice !== "" 
+        ? parseFloat(manualHardwarePrice) 
+        : calculatedHardwarePrice;
 
       // Update client
       await updateClient(client.id, {
@@ -412,7 +435,7 @@ export function EditClientModal({
         months_left: finalMonthsLeft,
         products: clientProducts,
         starter_pack_price: starterPackPrice ? parseFloat(starterPackPrice) : undefined,
-        hardware_price: hardwarePrice ? parseFloat(hardwarePrice) : undefined,
+        hardware_price: finalHardwarePrice > 0 ? finalHardwarePrice : undefined,
         contract_start_date: contractStartDate || undefined,
         status: status,
       });
@@ -420,6 +443,7 @@ export function EditClientModal({
       // Update stock_actuel for each product
       // Calculate the difference: newQuantity - originalQuantity
       // If positive, decrease stock; if negative, increase stock
+      // When a client buys products (type = "buy"), add quantity to hardware_total
       for (const detail of Object.values(productDetails)) {
         const product = products.find((p) => p.id === detail.productId);
         if (product) {
@@ -435,12 +459,39 @@ export function EditClientModal({
           
           const newTotalValue = newStockActuel * product.purchase_price;
           
+          // Calculate hardware_total changes
+          // When a client buys products (type = "buy"), add quantity to hardware_total
+          // If changing from rent to buy: add the new quantity
+          // If already buy and quantity increased: add the difference
+          // If already buy and quantity decreased: don't subtract (hardware_total is cumulative)
+          // If changing from buy to rent: don't subtract (it was already added)
+          // For new products (originalQuantity = 0), if type is "buy", add the quantity
+          let hardwareTotalChange = 0;
+          if (detail.type === "buy") {
+            if (detail.originalQuantity === 0) {
+              // New product: add the full quantity
+              hardwareTotalChange = detail.quantity;
+            } else if (detail.originalType === "rent") {
+              // Changing from rent to buy: add the new quantity
+              hardwareTotalChange = detail.quantity;
+            } else if (detail.originalType === "buy") {
+              // Already buy: add the difference if quantity increased
+              if (detail.quantity > detail.originalQuantity) {
+                hardwareTotalChange = detail.quantity - detail.originalQuantity;
+              }
+              // If quantity decreased, don't subtract (hardware_total is cumulative)
+            }
+          }
+          // If changing from buy to rent, don't change hardware_total (it was already added)
+          
+          const newHardwareTotal = (product.hardware_total ?? product.quantity ?? 0) + hardwareTotalChange;
+          
           await updateProduct({
             ...product,
             stock_actuel: newStockActuel,
             quantity: newStockActuel, // Keep quantity in sync for backward compatibility
             total_value: newTotalValue,
-            // hardware_total remains unchanged
+            hardware_total: newHardwareTotal,
           });
         }
       }
@@ -561,30 +612,31 @@ export function EditClientModal({
                         <Separator className="mb-3" />
                         <div className="space-y-3">
                           <div className="space-y-1">
-                            <Label htmlFor={`type_${product.id}`} className="text-xs">
-                              Type
-                            </Label>
-                            <Select
-                              value={detail.type}
-                              onValueChange={(value: "buy" | "rent") =>
-                                handleTypeChange(product.id, value)
-                              }
-                              disabled={isSaving}
-                            >
-                              <SelectTrigger id={`type_${product.id}`}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="buy">
-                                  Acheter
-                                </SelectItem>
-                                <SelectItem value="rent">
-                                  Louer
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <Label className="text-xs">Type</Label>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant={detail.type === "buy" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handleTypeChange(product.id, "buy")}
+                                disabled={isSaving}
+                                className={detail.type === "buy" ? "" : "opacity-60 hover:opacity-80"}
+                              >
+                                Acheter
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={detail.type === "rent" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handleTypeChange(product.id, "rent")}
+                                disabled={isSaving}
+                                className={detail.type === "rent" ? "" : "opacity-60 hover:opacity-80"}
+                              >
+                                Louer
+                              </Button>
+                            </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className={detail.type === "rent" ? "grid grid-cols-2 gap-3" : "space-y-1"}>
                             <div className="space-y-1">
                               <Label htmlFor={`quantity_${product.id}`} className="text-xs">
                                 Quantité
@@ -605,23 +657,25 @@ export function EditClientModal({
                 </p>
               )}
             </div>
-                            <div className="space-y-1">
-                              <Label htmlFor={`fee_${product.id}`} className="text-xs">
-                                Frais Mensuels (€)
-                              </Label>
-                              <Input
-                                id={`fee_${product.id}`}
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={detail.monthlyFeeDisplay ?? (detail.monthlyFee === 0 ? "" : detail.monthlyFee.toString())}
-                                onChange={(e) =>
-                                  handleMonthlyFeeChange(product.id, e.target.value)
-                                }
-                                disabled={isSaving}
-                                placeholder="0.00"
-                              />
-                            </div>
+                            {detail.type === "rent" && (
+                              <div className="space-y-1">
+                                <Label htmlFor={`fee_${product.id}`} className="text-xs">
+                                  Frais Mensuels (€)
+                                </Label>
+                                <Input
+                                  id={`fee_${product.id}`}
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={detail.monthlyFeeDisplay ?? (detail.monthlyFee === 0 ? "" : detail.monthlyFee.toString())}
+                                  onChange={(e) =>
+                                    handleMonthlyFeeChange(product.id, e.target.value)
+                                  }
+                                  disabled={isSaving}
+                                  placeholder="0.00"
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                       </CardContent>
@@ -658,7 +712,7 @@ export function EditClientModal({
                   className="bg-muted"
                 />
                 <p className="text-xs text-muted-foreground">
-                  {manualTotalSoldAmount !== null ? "Valeur sauvegardée" : "Calculé automatiquement (somme des prix d'achat)"}
+                  {manualTotalSoldAmount !== null ? "Valeur sauvegardée" : "Calculé automatiquement (somme des prix d'achat des produits achetés)"}
                 </p>
                 {errors.total_sold_amount && (
                   <p className="text-sm text-destructive">
@@ -718,9 +772,28 @@ export function EditClientModal({
                   step="0.01"
                   min="0"
                   placeholder="0.00"
-                  value={hardwarePrice}
-                  onChange={(e) => setHardwarePrice(e.target.value)}
+                  value={isEditingHardwarePrice || manualHardwarePrice !== null 
+                    ? (manualHardwarePrice || "") 
+                    : calculatedHardwarePrice.toFixed(2)}
+                  onChange={(e) => {
+                    setIsEditingHardwarePrice(true);
+                    setManualHardwarePrice(e.target.value);
+                  }}
+                  onBlur={() => {
+                    setIsEditingHardwarePrice(false);
+                    // If empty after blur, revert to calculated
+                    if (manualHardwarePrice === "") {
+                      setManualHardwarePrice(null);
+                    }
+                  }}
+                  disabled={isSaving}
+                  className="bg-muted"
                 />
+                <p className="text-xs text-muted-foreground">
+                  {manualHardwarePrice !== null 
+                    ? "Valeur manuelle (modifiable)" 
+                    : "Calculé automatiquement: somme des prix d'achat des produits achetés"}
+                </p>
               </div>
             </div>
 

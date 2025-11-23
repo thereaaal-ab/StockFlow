@@ -11,13 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import { useClients, ClientProduct } from "@/hooks/useClients";
 import { useProducts } from "@/hooks/useProducts";
@@ -45,12 +38,13 @@ export function AddClientModal() {
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [productDetails, setProductDetails] = useState<Record<string, SelectedProduct>>({});
   const [starterPackPrice, setStarterPackPrice] = useState("");
-  const [hardwarePrice, setHardwarePrice] = useState("");
   const [contractStartDate, setContractStartDate] = useState("");
   const [manualTotalSoldAmount, setManualTotalSoldAmount] = useState<string | null>(null);
   const [manualTotalMonthlyFee, setManualTotalMonthlyFee] = useState<string | null>(null);
+  const [manualHardwarePrice, setManualHardwarePrice] = useState<string | null>(null);
   const [isEditingSoldAmount, setIsEditingSoldAmount] = useState(false);
   const [isEditingMonthlyFee, setIsEditingMonthlyFee] = useState(false);
+  const [isEditingHardwarePrice, setIsEditingHardwarePrice] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const { products, updateProduct } = useProducts();
@@ -58,15 +52,20 @@ export function AddClientModal() {
   const { toast } = useToast();
 
   // Calculate totals from selected products
-  // Montant d'installation = sum of all hardware purchase prices (what we paid)
-  const { installationAmount, totalMonthlyFee, totalProductQuantity } = useMemo(() => {
-    let installation = 0; // Sum of purchase prices (what we invested)
+  // Montant d'installation = sum of purchase prices for products where type = "buy" (what we paid)
+  // Hardware Price = sum of purchase prices for products where type = "buy" (what client pays)
+  const { installationAmount, totalMonthlyFee, totalProductQuantity, calculatedHardwarePrice } = useMemo(() => {
+    let installation = 0; // Sum of purchase prices for buy products (what we invested)
     let fee = 0;
     let qty = 0;
+    let hardwarePrice = 0; // Sum of purchase prices for buy products (what client pays)
 
     Object.values(productDetails).forEach((detail) => {
-      // Always use purchase_price for installation amount (what we paid for hardware)
-      installation += detail.purchasePrice * detail.quantity;
+      // Only include buy products in installation amount and hardware price
+      if (detail.type === "buy") {
+        installation += detail.purchasePrice * detail.quantity;
+        hardwarePrice += detail.purchasePrice * detail.quantity;
+      }
       // Monthly fee is per product, not per unit - just sum the monthlyFee values
       // Ensure monthlyFee is a valid number
       const monthlyFee = typeof detail.monthlyFee === 'number' ? detail.monthlyFee : parseFloat(String(detail.monthlyFee)) || 0;
@@ -78,6 +77,7 @@ export function AddClientModal() {
       installationAmount: installation,
       totalMonthlyFee: fee,
       totalProductQuantity: qty,
+      calculatedHardwarePrice: hardwarePrice,
     };
   }, [productDetails]);
 
@@ -101,7 +101,10 @@ export function AddClientModal() {
     
     // Calculate Profit One Shot (first month benefits)
     const starterPack = starterPackPrice ? parseFloat(starterPackPrice) : 0;
-    const hardwareSell = hardwarePrice ? parseFloat(hardwarePrice) : 0;
+    const finalHardwarePrice = manualHardwarePrice !== null && manualHardwarePrice !== "" 
+      ? parseFloat(manualHardwarePrice) 
+      : calculatedHardwarePrice;
+    const hardwareSell = finalHardwarePrice || 0;
     const profitOneShot = starterPack + hardwareSell + finalMonthlyFee;
     
     // Net after first month: Profit One Shot - Investment
@@ -118,7 +121,7 @@ export function AddClientModal() {
       // Total: 1 (first month) + additional months
       return 1 + Math.ceil(remainingBalance / finalMonthlyFee);
     }
-  }, [installationAmount, totalMonthlyFee, manualTotalSoldAmount, manualTotalMonthlyFee, starterPackPrice, hardwarePrice]);
+  }, [installationAmount, totalMonthlyFee, calculatedHardwarePrice, manualTotalSoldAmount, manualTotalMonthlyFee, manualHardwarePrice, starterPackPrice]);
 
   // Handle product selection
   const handleProductSelectionChange = (productIds: string[]) => {
@@ -170,6 +173,9 @@ export function AddClientModal() {
       [productId]: {
         ...detail,
         type,
+        // Clear monthly fee when switching to "buy"
+        monthlyFee: type === "buy" ? 0 : detail.monthlyFee,
+        monthlyFeeDisplay: type === "buy" ? "" : detail.monthlyFeeDisplay,
       },
     });
   };
@@ -326,6 +332,11 @@ export function AddClientModal() {
         : totalMonthlyFee;
       const finalMonthsLeft = finalTotalMonthlyFee > 0 ? Math.ceil(finalInstallationAmount / finalTotalMonthlyFee) : monthsLeft;
 
+      // Use manually entered hardware price if provided, otherwise use calculated value
+      const finalHardwarePrice = manualHardwarePrice !== null && manualHardwarePrice !== "" 
+        ? parseFloat(manualHardwarePrice) 
+        : calculatedHardwarePrice;
+
       // Create client
       await createClient({
         client_name: clientName.trim(),
@@ -335,12 +346,13 @@ export function AddClientModal() {
         months_left: finalMonthsLeft,
         products: clientProducts,
         starter_pack_price: starterPackPrice ? parseFloat(starterPackPrice) : undefined,
-        hardware_price: hardwarePrice ? parseFloat(hardwarePrice) : undefined,
+        hardware_price: finalHardwarePrice > 0 ? finalHardwarePrice : undefined,
         contract_start_date: contractStartDate || undefined,
         status: "active",
       });
 
-      // Update stock_actuel for each product (do not change hardware_total)
+      // Update stock_actuel for each product
+      // When a client buys products (type = "buy"), add quantity to hardware_total
       for (const detail of Object.values(productDetails)) {
         const product = products.find((p) => p.id === detail.productId);
         if (product) {
@@ -352,12 +364,17 @@ export function AddClientModal() {
           const newStockActuel = product.stock_actuel - detail.quantity;
           const newTotalValue = newStockActuel * product.purchase_price;
           
+          // If client is buying (not renting), add quantity to hardware_total
+          const newHardwareTotal = detail.type === "buy" 
+            ? (product.hardware_total ?? product.quantity ?? 0) + detail.quantity
+            : (product.hardware_total ?? product.quantity ?? 0);
+          
           await updateProduct({
             ...product,
             stock_actuel: newStockActuel,
             quantity: newStockActuel, // Keep quantity in sync for backward compatibility
             total_value: newTotalValue,
-            // hardware_total remains unchanged
+            hardware_total: newHardwareTotal,
           });
         }
       }
@@ -368,7 +385,6 @@ export function AddClientModal() {
       setSelectedProductIds([]);
       setProductDetails({});
       setStarterPackPrice("");
-      setHardwarePrice("");
       setErrors({});
       
       toast({
@@ -395,12 +411,13 @@ export function AddClientModal() {
       setClientName("");
       setManualTotalSoldAmount(null);
       setManualTotalMonthlyFee(null);
+      setManualHardwarePrice(null);
       setIsEditingSoldAmount(false);
       setIsEditingMonthlyFee(false);
+      setIsEditingHardwarePrice(false);
       setSelectedProductIds([]);
       setProductDetails({});
       setStarterPackPrice("");
-      setHardwarePrice("");
       setContractStartDate("");
       setErrors({});
     }
@@ -483,30 +500,31 @@ export function AddClientModal() {
                         <Separator className="mb-3" />
                         <div className="space-y-3">
                           <div className="space-y-1">
-                            <Label htmlFor={`type_${product.id}`} className="text-xs">
-                              Type
-                            </Label>
-                            <Select
-                              value={detail.type}
-                              onValueChange={(value: "buy" | "rent") =>
-                                handleTypeChange(product.id, value)
-                              }
-                              disabled={isSaving}
-                            >
-                              <SelectTrigger id={`type_${product.id}`}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="buy">
-                                  Acheter
-                                </SelectItem>
-                                <SelectItem value="rent">
-                                  Louer
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <Label className="text-xs">Type</Label>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant={detail.type === "buy" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handleTypeChange(product.id, "buy")}
+                                disabled={isSaving}
+                                className={detail.type === "buy" ? "" : "opacity-60 hover:opacity-80"}
+                              >
+                                Acheter
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={detail.type === "rent" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handleTypeChange(product.id, "rent")}
+                                disabled={isSaving}
+                                className={detail.type === "rent" ? "" : "opacity-60 hover:opacity-80"}
+                              >
+                                Louer
+                              </Button>
+                            </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className={detail.type === "rent" ? "grid grid-cols-2 gap-3" : "space-y-1"}>
                           <div className="space-y-1">
                             <Label htmlFor={`quantity_${product.id}`} className="text-xs">
                               Quantité
@@ -527,23 +545,25 @@ export function AddClientModal() {
                               </p>
                             )}
                           </div>
-                          <div className="space-y-1">
-                            <Label htmlFor={`fee_${product.id}`} className="text-xs">
-                              Frais Mensuels (€)
-                            </Label>
-                            <Input
-                              id={`fee_${product.id}`}
-                              type="number"
-                              step="0.01"
-                              min="0"
-                                value={detail.monthlyFeeDisplay ?? (detail.monthlyFee === 0 ? "" : detail.monthlyFee.toString())}
-                              onChange={(e) =>
-                                  handleMonthlyFeeChange(product.id, e.target.value)
-                              }
-                              disabled={isSaving}
-                              placeholder="0.00"
-                            />
+                          {detail.type === "rent" && (
+                            <div className="space-y-1">
+                              <Label htmlFor={`fee_${product.id}`} className="text-xs">
+                                Frais Mensuels (€)
+                              </Label>
+                              <Input
+                                id={`fee_${product.id}`}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                  value={detail.monthlyFeeDisplay ?? (detail.monthlyFee === 0 ? "" : detail.monthlyFee.toString())}
+                                onChange={(e) =>
+                                    handleMonthlyFeeChange(product.id, e.target.value)
+                                }
+                                disabled={isSaving}
+                                placeholder="0.00"
+                              />
                             </div>
+                          )}
                           </div>
                         </div>
                       </CardContent>
@@ -581,7 +601,7 @@ export function AddClientModal() {
                   data-testid="input-installation-amount"
                 />
                 <p className="text-xs text-muted-foreground">
-                  {manualTotalSoldAmount !== null ? "Valeur manuelle" : "Calculé automatiquement (somme des prix d'achat)"}
+                  {manualTotalSoldAmount !== null ? "Valeur manuelle" : "Calculé automatiquement (somme des prix d'achat des produits achetés)"}
                 </p>
                 {errors.total_sold_amount && (
                   <p className="text-sm text-destructive">{errors.total_sold_amount}</p>
@@ -645,11 +665,29 @@ export function AddClientModal() {
                   step="0.01"
                   min="0"
                   placeholder="0.00"
-                  value={hardwarePrice}
-                  onChange={(e) => setHardwarePrice(e.target.value)}
+                  value={isEditingHardwarePrice || manualHardwarePrice !== null 
+                    ? (manualHardwarePrice || "") 
+                    : calculatedHardwarePrice.toFixed(2)}
+                  onChange={(e) => {
+                    setIsEditingHardwarePrice(true);
+                    setManualHardwarePrice(e.target.value);
+                  }}
+                  onBlur={() => {
+                    setIsEditingHardwarePrice(false);
+                    // If empty after blur, revert to calculated
+                    if (manualHardwarePrice === "") {
+                      setManualHardwarePrice(null);
+                    }
+                  }}
                   disabled={isSaving}
+                  className="bg-muted"
                   data-testid="input-hardware-price"
                 />
+                <p className="text-xs text-muted-foreground">
+                  {manualHardwarePrice !== null 
+                    ? "Valeur manuelle (modifiable)" 
+                    : "Calculé automatiquement: somme des prix d'achat des produits achetés"}
+                </p>
                 {errors.hardware_price && (
                   <p className="text-sm text-destructive">{errors.hardware_price}</p>
                 )}
