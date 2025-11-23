@@ -90,6 +90,12 @@ export function calculateInstallationCosts(
   
   if (client.products && client.products.length > 0) {
     client.products.forEach((clientProduct) => {
+      // Only include products where type is "buy" (not "rent")
+      // If type is undefined, treat it as "buy" for backward compatibility
+      if (clientProduct.type === "rent") {
+        return; // Skip rent products
+      }
+      
       // Use stored purchasePrice if available (what we paid)
       let purchasePrice = clientProduct.purchasePrice;
       if (purchasePrice === undefined) {
