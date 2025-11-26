@@ -253,9 +253,10 @@ export function EditClientModal({
       [productId]: {
         ...detail,
         type,
+        // Auto-set monthly fee from rent_price when switching to "rent"
         // Clear monthly fee when switching to "buy"
-        monthlyFee: type === "buy" ? 0 : detail.monthlyFee,
-        monthlyFeeDisplay: type === "buy" ? "" : detail.monthlyFeeDisplay,
+        monthlyFee: type === "buy" ? 0 : (detail.monthlyFee || detail.rentPrice || 0),
+        monthlyFeeDisplay: type === "buy" ? "" : (detail.monthlyFeeDisplay || String(detail.rentPrice || 0)),
       },
     });
   };

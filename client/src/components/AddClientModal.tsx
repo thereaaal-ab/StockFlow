@@ -134,16 +134,19 @@ export function AddClientModal() {
       if (!newDetails[productId]) {
         const product = products.find((p) => p.id === productId);
         if (product) {
+          // Auto-set monthlyFee from rent_price if product has rent_price set
+          // This will be used when type is changed to "rent"
+          const rentPrice = product.rent_price ?? 0;
           newDetails[productId] = {
             productId: product.id,
             name: product.name,
             quantity: 1,
-            monthlyFee: 0,
+            monthlyFee: 0, // Will be auto-set when type is "rent"
             monthlyFeeDisplay: "",
             stockActuel: product.stock_actuel ?? product.quantity ?? 0,
             purchasePrice: product.purchase_price,
             sellingPrice: product.selling_price,
-            rentPrice: product.rent_price ?? 0,
+            rentPrice: rentPrice,
             type: "buy", // Default to buy
           };
         }
@@ -173,9 +176,10 @@ export function AddClientModal() {
       [productId]: {
         ...detail,
         type,
+        // Auto-set monthly fee from rent_price when switching to "rent"
         // Clear monthly fee when switching to "buy"
-        monthlyFee: type === "buy" ? 0 : detail.monthlyFee,
-        monthlyFeeDisplay: type === "buy" ? "" : detail.monthlyFeeDisplay,
+        monthlyFee: type === "buy" ? 0 : (detail.monthlyFee || detail.rentPrice || 0),
+        monthlyFeeDisplay: type === "buy" ? "" : (detail.monthlyFeeDisplay || String(detail.rentPrice || 0)),
       },
     });
   };
