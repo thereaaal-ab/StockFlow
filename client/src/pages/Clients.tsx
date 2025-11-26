@@ -1,5 +1,6 @@
 import { ClientCard } from "@/components/ClientCard";
 import { AddClientModal } from "@/components/AddClientModal";
+import { BulkImportClientsDialog } from "@/components/BulkImportClientsDialog";
 import { ClientDetailsModal } from "@/components/ClientDetailsModal";
 import { EditClientModal } from "@/components/EditClientModal";
 import { useState } from "react";
@@ -51,7 +52,10 @@ export default function Clients() {
             Gestion des clients et de leur matériel assigné
           </p>
         </div>
-        <AddClientModal />
+        <div className="flex items-center gap-2">
+          <BulkImportClientsDialog />
+          <AddClientModal />
+        </div>
       </div>
 
       {isLoading ? (

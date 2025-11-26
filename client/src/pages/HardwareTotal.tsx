@@ -1,5 +1,6 @@
 import { HardwareTable } from "@/components/HardwareTable";
 import { AddHardwareDialog } from "@/components/AddHardwareDialog";
+import { BulkImportProductsDialog } from "@/components/BulkImportProductsDialog";
 import { EditProductModal } from "@/components/EditProductModal";
 import { Input } from "@/components/ui/input";
 import { Search, Download } from "lucide-react";
@@ -59,6 +60,7 @@ export default function HardwareTotal() {
             <Download className="w-4 h-4 mr-2" />
             Exporter
           </Button>
+          <BulkImportProductsDialog />
           <AddHardwareDialog />
         </div>
       </div>
