@@ -268,9 +268,11 @@ export function calculateClientMetrics(
     ? (monthsPassed + 1) * monthlyFee 
     : 0;
 
-  // Calculate total revenue and net cash flow with month-to-month carry forward
-  let totalRevenue = 0;
-  let netCashFlow = 0;
+  // Calculate total revenue and net cash flow
+  // Revenus (Positif) = Profit One Shot + Monthly Fee (simple calculation)
+  let totalRevenue = profitOneShot + monthlyFee;
+  // Net = Coûts (Négatif) + Revenus (Positif) = -installationCosts + totalRevenue
+  let netCashFlow = totalRevenue - installationCosts;
   let monthsToCover = 0;
   let profitabilityDate: string | null = null;
   
@@ -281,8 +283,6 @@ export function calculateClientMetrics(
     
     if (month1Net >= 0) {
       // Covered in first month
-      totalRevenue = profitOneShot + monthlyFee; // profitOneShot + first month's monthly fee
-      netCashFlow = month1Net;
       monthsToCover = 0;
       // Show contract start date (covered in first month)
       profitabilityDate = contractStartDate.toLocaleDateString("fr-FR", {
@@ -307,15 +307,6 @@ export function calculateClientMetrics(
         }
       }
       
-      // Calculate total revenue: first month (profitOneShot + monthlyFee) + additional months needed to cover
-      // profitOneShot does NOT include monthly fee, so add monthsToCover * monthlyFee
-      totalRevenue = profitOneShot + (monthsToCover * monthlyFee);
-      
-      // Calculate net cash flow (carry forward negative balance month-to-month)
-      // Month 1: -installationCosts + profitOneShot + monthlyFee
-      // Month 2+: monthlyFee each month until covered
-      netCashFlow = profitOneShot - installationCosts + (monthsToCover * monthlyFee);
-      
       // Calculate profitability date
       // monthsToCover = total months needed (including first month)
       // Example: Start Nov 22, monthsToCover = 3 → Nov 22 + 2 months = Jan 22
@@ -330,18 +321,7 @@ export function calculateClientMetrics(
         year: "numeric",
       });
     }
-    
-    // Add revenue from months already passed beyond coverage
-    if (monthsPassed > monthsToCover) {
-      const additionalMonths = monthsPassed - monthsToCover;
-      totalRevenue += additionalMonths * monthlyFee;
-      netCashFlow += additionalMonths * monthlyFee;
-    }
   } else {
-    // No contract start date, assume first month only
-    // profitOneShot does NOT include monthly fee, so add it for first month
-    totalRevenue = profitOneShot + monthlyFee;
-    netCashFlow = profitOneShot + monthlyFee - installationCosts;
     if (netCashFlow >= 0) {
       monthsToCover = 0;
       // If no contract start date but covered, use today's date
