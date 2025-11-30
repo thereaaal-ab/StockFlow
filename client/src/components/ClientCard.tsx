@@ -73,7 +73,7 @@ export function ClientCard({
               <Euro className="h-4 w-4" />
               <span>Montant d'installation</span>
             </div>
-            <p className="text-lg font-bold">{formatCurrencyCompact(client.total_sold_amount || 0)}</p>
+            <p className="text-lg font-bold">{formatCurrencyCompact(metrics.installation_costs)}</p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">

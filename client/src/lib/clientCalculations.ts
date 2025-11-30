@@ -27,7 +27,7 @@ export interface ClientCalculationResult {
   status: "profitable" | "covering_investment";
   // Cash flow metrics
   installation_costs: number; // Negative: what we spent (sum of purchase prices)
-  profit_one_shot: number; // First month benefits: Starter pack + Hardware sell + Monthly fee
+  profit_one_shot: number; // First month benefits: Starter pack + Hardware sell (one-time revenue)
   profit_mensuel: number; // Monthly fee (benefit)
   total_revenue: number; // Positive: what we collected
   net_cash_flow: number; // Net: positive - negative (carries forward negative balance)
@@ -76,9 +76,11 @@ export function calculateTotalMonthlyFeeFromProducts(
 }
 
 /**
- * Calculate installation costs (NEGATIVE - what we spent)
- * Installation costs = sum of purchase prices of all hardware installed
- * Example: Kiosk 500€ + Printer 500€ = -1000€
+ * Calculate installation costs
+ * Installation costs = sum of prices for all hardware installed (type = "buy")
+ * Uses selling price (clientPrice) if entered, otherwise purchase price (default)
+ * Example: Kiosk 500€ (purchase) or 2100€ (selling if entered) + Printer 500€ = 1000€ or 2600€
+ * This matches "Montant d'installation" and "Investissement Total"
  */
 export function calculateInstallationCosts(
   client: {
@@ -96,18 +98,21 @@ export function calculateInstallationCosts(
         return; // Skip rent products
       }
       
-      // Use stored purchasePrice if available (what we paid)
-      let purchasePrice = clientProduct.purchasePrice;
-      if (purchasePrice === undefined) {
-        // Fallback: get from product
-        const product = allProducts.find((p) => p.id === clientProduct.productId);
-        if (product) {
-          purchasePrice = product.purchase_price || 0;
+      // Use selling price (clientPrice) if entered and > 0, otherwise use purchase price
+      let price = 0;
+      if (clientProduct.clientPrice && clientProduct.clientPrice > 0) {
+        // Use selling price if entered
+        price = clientProduct.clientPrice;
+      } else {
+        // Use purchase price as default
+        if (clientProduct.purchasePrice !== undefined) {
+          price = clientProduct.purchasePrice;
         } else {
-          purchasePrice = 0;
+          const product = allProducts.find((p) => p.id === clientProduct.productId);
+          price = product?.purchase_price || 0;
         }
       }
-      costs += purchasePrice * (clientProduct.quantity || 0);
+      costs += price * (clientProduct.quantity || 0);
     });
   }
   
@@ -118,6 +123,7 @@ export function calculateInstallationCosts(
  * Calculate total investment for a client
  * Investment = ONLY installation costs (what we spent on hardware purchase prices)
  * NOT starter pack or hardware sell price - those are benefits
+ * This should match "Montant d'installation" and "Coûts" in Flux de Trésorerie
  */
 export function calculateTotalInvestment(
   client: {
@@ -125,7 +131,7 @@ export function calculateTotalInvestment(
   },
   allProducts: Product[] = []
 ): number {
-  // Investment is ONLY the installation costs (what we spent)
+  // Investment is ONLY the installation costs (what we spent) - uses purchase prices for buy products
   return calculateInstallationCosts(client, allProducts);
 }
 
@@ -234,14 +240,14 @@ export function calculateClientMetrics(
   // Investment Total = ONLY installation costs
   const totalInvestment = installationCosts;
 
-  // Calculate Profit One Shot (first month benefits)
-  // Starter pack + Hardware (what client pays) + Monthly fee
+  // Calculate Profit One Shot (first month one-time benefits)
+  // Starter pack + Hardware (what client pays) - NO monthly fee (that's recurring)
   // Use the hardware_price field directly (what client pays for hardware)
   const starterPack = client.starter_pack_price || 0;
   const hardwareSell = client.hardware_price || 0; // What client pays for hardware
   
-  // Profit One Shot = first month benefits (ONLY first month)
-  const profitOneShot = starterPack + hardwareSell + monthlyFee;
+  // Profit One Shot = one-time revenue (Starter pack + Hardware sell)
+  const profitOneShot = starterPack + hardwareSell;
   
   // Profit Mensuel = monthly fee only
   const profitMensuel = monthlyFee;
@@ -253,12 +259,12 @@ export function calculateClientMetrics(
   let profitabilityDate: string | null = null;
   
   if (contractStartDate) {
-    // Month 1: Negative (installation costs) + Positive (profit one shot)
-    const month1Net = profitOneShot - installationCosts;
+    // Month 1: Negative (installation costs) + Positive (profit one shot + monthly fee)
+    const month1Net = profitOneShot + monthlyFee - installationCosts;
     
     if (month1Net >= 0) {
       // Covered in first month
-      totalRevenue = profitOneShot;
+      totalRevenue = profitOneShot + monthlyFee;
       netCashFlow = month1Net;
       monthsToCover = 0;
       // Show contract start date (covered in first month)

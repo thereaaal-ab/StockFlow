@@ -114,7 +114,8 @@ export function EditClientModal({
               monthlyFeeDisplay: clientProduct.monthlyFee === 0 ? "" : clientProduct.monthlyFee.toString(),
               stockActuel: product.stock_actuel ?? product.quantity ?? 0,
               purchasePrice: product.purchase_price,
-              sellingPrice: product.selling_price,
+              sellingPrice: clientProduct.clientPrice || product.selling_price || product.purchase_price,
+              sellingPriceDisplay: clientProduct.clientPrice ? clientProduct.clientPrice.toString() : (product.selling_price > 0 ? product.selling_price.toString() : ""),
               rentPrice: product.rent_price ?? 0,
               type: clientProduct.type || "buy", // Default to buy if not specified
               originalQuantity: clientProduct.quantity, // Store original for stock calculation
@@ -133,19 +134,25 @@ export function EditClientModal({
   }, [client, open, products]);
 
   // Calculate totals from selected products
-  // Montant d'installation = sum of purchase prices for products where type = "buy" (what we paid)
-  // Hardware Price = sum of purchase prices for products where type = "buy" (what client pays)
+  // Montant d'installation = sum of prices for products where type = "buy"
+  // Uses selling price if entered, otherwise purchase price (default)
+  // Hardware Price = same as Montant d'installation (selling price if entered, else purchase price)
   const { installationAmount, totalMonthlyFee, totalProductQuantity, calculatedHardwarePrice } = useMemo(() => {
-    let installation = 0; // Sum of purchase prices for buy products (what we invested)
+    let installation = 0; // Sum of prices for buy products (selling price if entered, else purchase price)
     let fee = 0;
     let qty = 0;
-    let hardwarePrice = 0; // Sum of purchase prices for buy products (what client pays)
+    let hardwarePrice = 0; // Same as installation (selling price if entered, else purchase price)
 
     Object.values(productDetails).forEach((detail) => {
       // Only include buy products in installation amount and hardware price
       if (detail.type === "buy") {
-        installation += detail.purchasePrice * detail.quantity;
-        hardwarePrice += detail.purchasePrice * detail.quantity;
+        // Use selling price if entered (and > 0), otherwise use purchase price
+        const priceForInstallation = (detail.sellingPrice && detail.sellingPrice > 0) 
+          ? detail.sellingPrice 
+          : detail.purchasePrice;
+        installation += priceForInstallation * detail.quantity;
+        // Hardware Price uses the same price as installation
+        hardwarePrice += priceForInstallation * detail.quantity;
       }
       // Monthly fee is per product, not per unit - just sum the monthlyFee values
       // Ensure monthlyFee is a valid number
@@ -164,7 +171,7 @@ export function EditClientModal({
 
   // Calculate months_left automatically using new cash flow logic
   // Investment = installation costs (negative)
-  // Profit One Shot = Starter pack + Hardware sell + Monthly fee (first month)
+  // Profit One Shot = Starter pack + Hardware sell (one-time revenue)
   // If covered in first month: 0 months
   // Otherwise: 1 (first month) + additional months needed
   const monthsLeft = useMemo(() => {
@@ -179,16 +186,16 @@ export function EditClientModal({
       return 0;
     }
     
-    // Calculate Profit One Shot (first month benefits)
+    // Calculate Profit One Shot (one-time revenue: Starter pack + Hardware sell)
     const starterPack = starterPackPrice ? parseFloat(starterPackPrice) : 0;
     const finalHardwarePrice = manualHardwarePrice !== null && manualHardwarePrice !== "" 
       ? parseFloat(manualHardwarePrice) 
       : calculatedHardwarePrice;
     const hardwareSell = finalHardwarePrice || 0;
-    const profitOneShot = starterPack + hardwareSell + finalMonthlyFee;
+    const profitOneShot = starterPack + hardwareSell;
     
-    // Net after first month: Profit One Shot - Investment
-    const netMonth1 = profitOneShot - finalInstallation;
+    // Net after first month: Profit One Shot + Monthly Fee - Investment
+    const netMonth1 = profitOneShot + finalMonthlyFee - finalInstallation;
     
     if (netMonth1 >= 0) {
       // Covered in first month
@@ -222,7 +229,8 @@ export function EditClientModal({
             monthlyFeeDisplay: "",
             stockActuel: product.stock_actuel ?? product.quantity ?? 0,
             purchasePrice: product.purchase_price,
-            sellingPrice: product.selling_price,
+            sellingPrice: 0, // Start with 0 so it uses purchase price by default
+            sellingPriceDisplay: "", // Empty by default, will use purchase price
             rentPrice: product.rent_price ?? 0,
             type: "buy", // Default to buy
             originalQuantity: 0, // New product, no original quantity
@@ -257,6 +265,9 @@ export function EditClientModal({
         // Clear monthly fee when switching to "buy"
         monthlyFee: type === "buy" ? 0 : (detail.monthlyFee || detail.rentPrice || 0),
         monthlyFeeDisplay: type === "buy" ? "" : (detail.monthlyFeeDisplay || String(detail.rentPrice || 0)),
+        // Keep selling price when switching types
+        sellingPrice: detail.sellingPrice || 0,
+        sellingPriceDisplay: detail.sellingPriceDisplay || (detail.sellingPrice > 0 ? detail.sellingPrice.toString() : ""),
       },
     });
   };
@@ -282,6 +293,29 @@ export function EditClientModal({
       delete newErrors[`quantity_${productId}`];
       setErrors(newErrors);
     }
+  };
+
+  // Update product selling price - handle string input to avoid leading zeros
+  const handleSellingPriceChange = (productId: string, value: string) => {
+    const detail = productDetails[productId];
+    if (!detail) return;
+
+    // Remove leading zeros (but allow "0" or "0.xx")
+    let cleanedValue = value;
+    if (cleanedValue.length > 1 && cleanedValue.startsWith('0') && !cleanedValue.startsWith('0.')) {
+      cleanedValue = cleanedValue.replace(/^0+/, '') || '0';
+    }
+    
+    const sellingPrice = cleanedValue === "" || cleanedValue === "-" ? 0 : parseFloat(cleanedValue) || 0;
+
+    setProductDetails({
+      ...productDetails,
+      [productId]: {
+        ...detail,
+        sellingPrice: Math.max(0, sellingPrice),
+        sellingPriceDisplay: cleanedValue,
+      },
+    });
   };
 
   // Update product monthly fee - handle string input to avoid leading zeros
@@ -359,11 +393,6 @@ export function EditClientModal({
       ? parseFloat(manualTotalMonthlyFee) 
       : totalMonthlyFee;
 
-    // Validation: installation amount must be >= totalMonthlyFee
-    if (finalInstallationAmount > 0 && finalTotalMonthlyFee > 0 && finalInstallationAmount < finalTotalMonthlyFee) {
-      newErrors.total_sold_amount = "Le montant d'installation doit être supérieur ou égal aux frais mensuels totaux";
-    }
-
     // Validation: months_left must be >= 1
     const finalMonthsLeft = finalTotalMonthlyFee > 0 ? Math.ceil(finalInstallationAmount / finalTotalMonthlyFee) : monthsLeft;
     if (finalTotalMonthlyFee > 0 && finalMonthsLeft < 1) {
@@ -395,7 +424,7 @@ export function EditClientModal({
         const purchasePrice = product?.purchase_price || 0;
         const clientPrice = detail.type === "rent" 
           ? (product?.rent_price || 0)
-          : (product?.purchase_price || 0); // Client pays purchase price when buying
+          : (detail.sellingPrice || product?.selling_price || 0); // Client pays selling price when buying (customizable)
 
         // If product already existed, preserve its addedAt, otherwise use current time
         const existingProduct = client.products?.find((p) => p.productId === detail.productId);
@@ -637,46 +666,70 @@ export function EditClientModal({
                               </Button>
                             </div>
                           </div>
-                          <div className={detail.type === "rent" ? "grid grid-cols-2 gap-3" : "space-y-1"}>
-                            <div className="space-y-1">
-                              <Label htmlFor={`quantity_${product.id}`} className="text-xs">
-                                Quantité
-                              </Label>
-              <Input
-                                id={`quantity_${product.id}`}
-                type="number"
-                                min="0"
-                                value={detail.quantity}
-                onChange={(e) =>
+                          <div className={detail.type === "rent" ? "grid grid-cols-2 gap-3" : (detail.type === "buy" ? "grid grid-cols-2 gap-3" : "space-y-1")}>
+                          <div className="space-y-1">
+                            <Label htmlFor={`quantity_${product.id}`} className="text-xs">
+                              Quantité
+                            </Label>
+                            <Input
+                              id={`quantity_${product.id}`}
+                              type="number"
+                              min="0"
+                              value={detail.quantity}
+                              onChange={(e) =>
                                   handleQuantityChange(product.id, e.target.value)
+                              }
+                              disabled={isSaving}
+                            />
+                            {errors[`quantity_${product.id}`] && (
+                              <p className="text-xs text-destructive">
+                                {errors[`quantity_${product.id}`]}
+                              </p>
+                            )}
+                          </div>
+                          {detail.type === "rent" && (
+                            <div className="space-y-1">
+                              <Label htmlFor={`fee_${product.id}`} className="text-xs">
+                                Frais Mensuels (€)
+                              </Label>
+                              <Input
+                                id={`fee_${product.id}`}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                  value={detail.monthlyFeeDisplay ?? (detail.monthlyFee === 0 ? "" : detail.monthlyFee.toString())}
+                                onChange={(e) =>
+                                    handleMonthlyFeeChange(product.id, e.target.value)
                                 }
                                 disabled={isSaving}
+                                placeholder="0.00"
                               />
-                              {errors[`quantity_${product.id}`] && (
-                                <p className="text-xs text-destructive">
-                                  {errors[`quantity_${product.id}`]}
-                </p>
-              )}
-            </div>
-                            {detail.type === "rent" && (
-                              <div className="space-y-1">
-                                <Label htmlFor={`fee_${product.id}`} className="text-xs">
-                                  Frais Mensuels (€)
-                                </Label>
-                                <Input
-                                  id={`fee_${product.id}`}
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={detail.monthlyFeeDisplay ?? (detail.monthlyFee === 0 ? "" : detail.monthlyFee.toString())}
-                                  onChange={(e) =>
-                                    handleMonthlyFeeChange(product.id, e.target.value)
-                                  }
-                                  disabled={isSaving}
-                                  placeholder="0.00"
-                                />
-                              </div>
-                            )}
+                            </div>
+                          )}
+                          {detail.type === "buy" && (
+                            <div className="space-y-1">
+                              <Label htmlFor={`selling_price_${product.id}`} className="text-xs">
+                                Prix de Vente (€)
+                              </Label>
+                              <Input
+                                id={`selling_price_${product.id}`}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={detail.sellingPriceDisplay ?? (detail.sellingPrice === 0 ? "" : detail.sellingPrice.toString())}
+                                onChange={(e) =>
+                                    handleSellingPriceChange(product.id, e.target.value)
+                                }
+                                disabled={isSaving}
+                                placeholder={`Par défaut: ${product.purchase_price.toFixed(2)}€ (prix d'achat)`}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                {detail.sellingPrice && detail.sellingPrice > 0 
+                                  ? `Utilisé: ${detail.sellingPrice.toFixed(2)}€` 
+                                  : `Par défaut: ${product.purchase_price.toFixed(2)}€ (prix d'achat)`}
+                              </p>
+                            </div>
+                          )}
                           </div>
                         </div>
                       </CardContent>
@@ -712,9 +765,6 @@ export function EditClientModal({
                   disabled={isSaving}
                   className="bg-muted"
                 />
-                <p className="text-xs text-muted-foreground">
-                  {manualTotalSoldAmount !== null ? "Valeur sauvegardée" : "Calculé automatiquement (somme des prix d'achat des produits achetés)"}
-                </p>
                 {errors.total_sold_amount && (
                   <p className="text-sm text-destructive">
                     {errors.total_sold_amount}
@@ -744,11 +794,6 @@ export function EditClientModal({
                   disabled={isSaving}
                   className="bg-muted"
                 />
-                <p className="text-xs text-muted-foreground">
-                  {manualTotalMonthlyFee !== null 
-                    ? "Valeur manuelle (modifiable)" 
-                    : `Calculé automatiquement: somme des frais mensuels de tous les produits`}
-                </p>
               </div>
             </div>
 
@@ -790,11 +835,6 @@ export function EditClientModal({
                   disabled={isSaving}
                   className="bg-muted"
                 />
-                <p className="text-xs text-muted-foreground">
-                  {manualHardwarePrice !== null 
-                    ? "Valeur manuelle (modifiable)" 
-                    : "Calculé automatiquement: somme des prix d'achat des produits achetés"}
-                </p>
               </div>
             </div>
 
@@ -807,10 +847,6 @@ export function EditClientModal({
                 disabled
                 className="bg-muted"
               />
-              <p className="text-xs text-muted-foreground">
-                Calculé automatiquement: {monthsLeft}{" "}
-                {monthsLeft === 1 ? "mois" : "mois"}
-              </p>
               {errors.months_left && (
                 <p className="text-sm text-destructive">{errors.months_left}</p>
               )}
