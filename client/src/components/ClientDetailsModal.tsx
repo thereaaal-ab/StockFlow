@@ -77,7 +77,10 @@ export function ClientDetailsModal({
                       <span>Montant d'installation</span>
                     </div>
                     <p className="text-xl font-bold text-primary">
-                      {formatCurrencyFull(client.total_sold_amount || 0)}
+                      {formatCurrencyFull(metrics.installation_costs)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      (calculé automatiquement depuis les produits)
                     </p>
                   </div>
 
@@ -238,8 +241,9 @@ export function ClientDetailsModal({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Starter Pack: {formatCurrencyFull(client.starter_pack_price || 0)} • 
-                            Hardware: {formatCurrencyFull(client.hardware_price || 0)} • 
-                            Frais Mensuels: {formatCurrencyFull(client.monthly_fee || 0)}
+                            Hardware: {formatCurrencyFull(client.hardware_price || 0)}
+                            <br />
+                            (Revenus uniques - Frais mensuels non inclus)
                           </p>
                         </div>
                       </div>

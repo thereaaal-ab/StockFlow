@@ -197,10 +197,81 @@ async function updateClient(
 
 // Delete a client
 async function deleteClient(id: string): Promise<void> {
+  // First, fetch the client to get the products array
+  const { data: clientData, error: fetchError } = await supabase
+    .from("clients")
+    .select("products")
+    .eq("id", id)
+    .single();
+
+  if (fetchError) {
+    throw new Error(`Failed to fetch client: ${fetchError.message}`);
+  }
+
+  // Delete the client
   const { error } = await supabase.from("clients").delete().eq("id", id);
 
   if (error) {
     throw new Error(`Failed to delete client: ${error.message}`);
+  }
+
+  // Restore stock_actuel for all products that were assigned to this client
+  if (clientData?.products) {
+    try {
+      let products: ClientProduct[] = [];
+      if (Array.isArray(clientData.products)) {
+        products = clientData.products;
+      } else if (typeof clientData.products === 'string') {
+        products = JSON.parse(clientData.products);
+      }
+
+      // Fetch all products to update their stock
+      const { data: allProducts, error: productsError } = await supabase
+        .from("products")
+        .select("id, stock_actuel, quantity, purchase_price, hardware_total");
+
+      if (productsError) {
+        console.error("Error fetching products for stock restoration:", productsError);
+        return; // Don't throw, client is already deleted
+      }
+
+      // Restore stock for each product
+      for (const clientProduct of products) {
+        const product = allProducts?.find((p) => p.id === clientProduct.productId);
+        if (product) {
+          // Restore the quantity that was taken from stock
+          const restoredStock = (product.stock_actuel ?? product.quantity ?? 0) + (clientProduct.quantity || 0);
+          const newTotalValue = restoredStock * parseFloat(product.purchase_price || "0");
+
+          // For "buy" products, decrease hardware_total (since they're no longer with a client)
+          // For "rent" products, hardware_total stays the same
+          const productType = clientProduct.type || "buy"; // Default to "buy" for backward compatibility
+          const currentHardwareTotal = product.hardware_total ?? product.quantity ?? 0;
+          const newHardwareTotal = productType === "buy"
+            ? Math.max(0, currentHardwareTotal - (clientProduct.quantity || 0))
+            : currentHardwareTotal;
+
+          // Update the product stock
+          const { error: updateError } = await supabase
+            .from("products")
+            .update({
+              stock_actuel: restoredStock,
+              quantity: restoredStock, // Keep quantity in sync for backward compatibility
+              total_value: newTotalValue.toString(),
+              hardware_total: newHardwareTotal,
+            })
+            .eq("id", product.id);
+
+          if (updateError) {
+            console.error(`Error restoring stock for product ${product.id}:`, updateError);
+            // Continue with other products even if one fails
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error processing products for stock restoration:", error);
+      // Don't throw, client is already deleted
+    }
   }
 }
 
@@ -231,6 +302,8 @@ export function useClients() {
     mutationFn: deleteClient,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      // Also invalidate products query to reflect restored stock
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 
