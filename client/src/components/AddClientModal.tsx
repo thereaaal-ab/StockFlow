@@ -53,25 +53,29 @@ export function AddClientModal() {
   const { toast } = useToast();
 
   // Calculate totals from selected products
-  // Montant d'installation = sum of prices for products where type = "buy" + total monthly fees
-  // Uses selling price if entered, otherwise purchase price (default)
-  // Hardware Price = hardware cost only (without monthly fees)
+  // Montant d'installation = sum of purchase prices for ALL products (buy AND rent)
+  // For buy products: Uses selling price if entered, otherwise purchase price (default)
+  // For rent products: Always uses purchase_price (original price)
+  // Monthly fees are NOT included in Montant d'installation
+  // Hardware Price = sum of buy products only (without monthly fees)
   const { installationAmount, totalMonthlyFee, totalProductQuantity, calculatedHardwarePrice, hardwareCostOnly } = useMemo(() => {
-    let installation = 0; // Sum of prices for buy products (selling price if entered, else purchase price)
+    let installation = 0; // Sum of prices for ALL products (buy + rent) using purchase prices
     let fee = 0;
     let qty = 0;
-    let hardwareCost = 0; // Hardware cost only (without monthly fees)
+    let hardwareCost = 0; // Hardware cost only (buy products only, without monthly fees)
 
     Object.values(productDetails).forEach((detail) => {
-      // Only include buy products in installation amount and hardware price
       if (detail.type === "buy") {
-        // Use selling price if entered (and > 0), otherwise use purchase price
+        // For buy products: Use selling price if entered (and > 0), otherwise use purchase price
         const priceForInstallation = (detail.sellingPrice && detail.sellingPrice > 0) 
           ? detail.sellingPrice 
           : detail.purchasePrice;
         installation += priceForInstallation * detail.quantity;
-        // Hardware cost (without monthly fees)
+        // Hardware cost (buy products only, without monthly fees)
         hardwareCost += priceForInstallation * detail.quantity;
+      } else if (detail.type === "rent") {
+        // For rent products: Always use purchase_price (original price)
+        installation += detail.purchasePrice * detail.quantity;
       }
       // Monthly fee is per product, not per unit - just sum the monthlyFee values
       // Ensure monthlyFee is a valid number
@@ -80,15 +84,14 @@ export function AddClientModal() {
       qty += detail.quantity;
     });
 
-    // Add total monthly fees to installation amount
-    installation += fee;
+    // Monthly fees are NOT included in Montant d'installation
     // Hardware Price does NOT include monthly fees
 
     return {
       installationAmount: installation,
       totalMonthlyFee: fee,
       totalProductQuantity: qty,
-      calculatedHardwarePrice: hardwareCost, // For display (hardware cost only, no monthly fees)
+      calculatedHardwarePrice: hardwareCost, // For display (buy products only, no monthly fees)
       hardwareCostOnly: hardwareCost, // For saving to DB (same as display)
     };
   }, [productDetails]);
@@ -111,18 +114,18 @@ export function AddClientModal() {
       return 0;
     }
     
-    // Calculate Profit One Shot (one-time revenue: Starter pack + Hardware sell + Monthly fee)
+    // Calculate Profit One Shot (one-time revenue: Starter pack + Hardware sell)
+    // Monthly fee is NOT included in Profit One Shot
     const starterPack = starterPackPrice ? parseFloat(starterPackPrice) : 0;
     // For monthsLeft calculation, use hardware cost only (without monthly fees)
-    // Monthly fee will be added separately in profit_one_shot
     const finalHardwarePriceForCalc = manualHardwarePrice !== null && manualHardwarePrice !== "" 
       ? parseFloat(manualHardwarePrice) 
       : hardwareCostOnly;
     const hardwareSell = finalHardwarePriceForCalc || 0;
-    const profitOneShot = starterPack + hardwareSell + finalMonthlyFee;
+    const profitOneShot = starterPack + hardwareSell;
     
-    // Net after first month: Profit One Shot (already includes monthly fee) - Investment
-    const netMonth1 = profitOneShot - finalInstallation;
+    // Net after first month: Profit One Shot + Monthly Fee - Investment
+    const netMonth1 = profitOneShot + finalMonthlyFee - finalInstallation;
     
     if (netMonth1 >= 0) {
       // Covered in first month
