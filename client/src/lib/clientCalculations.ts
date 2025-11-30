@@ -269,8 +269,8 @@ export function calculateClientMetrics(
     : 0;
 
   // Calculate total revenue and net cash flow
-  // Revenus (Positif) = Profit One Shot + Monthly Fee (simple calculation)
-  let totalRevenue = profitOneShot + monthlyFee;
+  // Revenus (Positif) = Profit One Shot + Cumulative Monthly Fees
+  let totalRevenue = profitOneShot + profitMensuel;
   // Net = Coûts (Négatif) + Revenus (Positif) = -installationCosts + totalRevenue
   let netCashFlow = totalRevenue - installationCosts;
   let monthsToCover = 0;
