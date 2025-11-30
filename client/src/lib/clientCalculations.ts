@@ -27,7 +27,7 @@ export interface ClientCalculationResult {
   status: "profitable" | "covering_investment";
   // Cash flow metrics
   installation_costs: number; // Negative: what we spent (sum of purchase prices)
-  profit_one_shot: number; // First month benefits: Starter pack + Hardware sell (one-time revenue)
+  profit_one_shot: number; // First month benefits: Starter pack + Hardware sell + Monthly fee (first month)
   profit_mensuel: number; // Monthly fee (benefit)
   total_revenue: number; // Positive: what we collected
   net_cash_flow: number; // Net: positive - negative (carries forward negative balance)
@@ -77,14 +77,15 @@ export function calculateTotalMonthlyFeeFromProducts(
 
 /**
  * Calculate installation costs
- * Installation costs = sum of prices for all hardware installed (type = "buy")
+ * Installation costs = sum of prices for all hardware installed (type = "buy") + total monthly fees
  * Uses selling price (clientPrice) if entered, otherwise purchase price (default)
- * Example: Kiosk 500€ (purchase) or 2100€ (selling if entered) + Printer 500€ = 1000€ or 2600€
+ * Example: Kiosk 500€ (purchase) or 2100€ (selling if entered) + Printer 500€ + Monthly fees 400€ = 1400€ or 3000€
  * This matches "Montant d'installation" and "Investissement Total"
  */
 export function calculateInstallationCosts(
   client: {
     products?: ClientProduct[];
+    monthly_fee?: number;
   },
   allProducts: Product[] = []
 ): number {
@@ -115,6 +116,13 @@ export function calculateInstallationCosts(
       costs += price * (clientProduct.quantity || 0);
     });
   }
+  
+  // Add total monthly fees to installation costs
+  const totalMonthlyFee = calculateTotalMonthlyFeeFromProducts(client);
+  const monthlyFee = client.monthly_fee && client.monthly_fee > 0 
+    ? client.monthly_fee 
+    : totalMonthlyFee;
+  costs += monthlyFee;
   
   return costs; // This is a positive number representing costs (will be displayed as negative)
 }
@@ -241,13 +249,13 @@ export function calculateClientMetrics(
   const totalInvestment = installationCosts;
 
   // Calculate Profit One Shot (first month one-time benefits)
-  // Starter pack + Hardware (what client pays) - NO monthly fee (that's recurring)
+  // Starter pack + Hardware (what client pays) + Monthly fee (first month only)
   // Use the hardware_price field directly (what client pays for hardware)
   const starterPack = client.starter_pack_price || 0;
   const hardwareSell = client.hardware_price || 0; // What client pays for hardware
   
-  // Profit One Shot = one-time revenue (Starter pack + Hardware sell)
-  const profitOneShot = starterPack + hardwareSell;
+  // Profit One Shot = first month revenue (Starter pack + Hardware sell + Monthly fee)
+  const profitOneShot = starterPack + hardwareSell + monthlyFee;
   
   // Profit Mensuel = monthly fee only
   const profitMensuel = monthlyFee;
@@ -259,12 +267,12 @@ export function calculateClientMetrics(
   let profitabilityDate: string | null = null;
   
   if (contractStartDate) {
-    // Month 1: Negative (installation costs) + Positive (profit one shot + monthly fee)
-    const month1Net = profitOneShot + monthlyFee - installationCosts;
+    // Month 1: Negative (installation costs) + Positive (profit one shot, which includes monthly fee)
+    const month1Net = profitOneShot - installationCosts;
     
     if (month1Net >= 0) {
       // Covered in first month
-      totalRevenue = profitOneShot + monthlyFee;
+      totalRevenue = profitOneShot; // profitOneShot already includes monthly fee
       netCashFlow = month1Net;
       monthsToCover = 0;
       // Show contract start date (covered in first month)
@@ -290,13 +298,14 @@ export function calculateClientMetrics(
         }
       }
       
-      // Calculate total revenue: first month + months needed to cover
-      totalRevenue = profitOneShot + (monthsToCover * monthlyFee);
+      // Calculate total revenue: first month (already in profitOneShot) + additional months needed to cover
+      // profitOneShot already includes monthly fee for first month, so add (monthsToCover - 1) * monthlyFee
+      totalRevenue = profitOneShot + ((monthsToCover - 1) * monthlyFee);
       
       // Calculate net cash flow (carry forward negative balance month-to-month)
-      // Month 1: -installationCosts + profitOneShot
+      // Month 1: -installationCosts + profitOneShot (which includes first month's monthly fee)
       // Month 2+: monthlyFee each month until covered
-      netCashFlow = profitOneShot - installationCosts + (monthsToCover * monthlyFee);
+      netCashFlow = profitOneShot - installationCosts + ((monthsToCover - 1) * monthlyFee);
       
       // Calculate profitability date
       // monthsToCover = total months needed (including first month)

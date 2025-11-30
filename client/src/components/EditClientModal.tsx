@@ -134,14 +134,14 @@ export function EditClientModal({
   }, [client, open, products]);
 
   // Calculate totals from selected products
-  // Montant d'installation = sum of prices for products where type = "buy"
+  // Montant d'installation = sum of prices for products where type = "buy" + total monthly fees
   // Uses selling price if entered, otherwise purchase price (default)
-  // Hardware Price = same as Montant d'installation (selling price if entered, else purchase price)
-  const { installationAmount, totalMonthlyFee, totalProductQuantity, calculatedHardwarePrice } = useMemo(() => {
+  // Hardware Price = hardware cost only (without monthly fees)
+  const { installationAmount, totalMonthlyFee, totalProductQuantity, calculatedHardwarePrice, hardwareCostOnly } = useMemo(() => {
     let installation = 0; // Sum of prices for buy products (selling price if entered, else purchase price)
     let fee = 0;
     let qty = 0;
-    let hardwarePrice = 0; // Same as installation (selling price if entered, else purchase price)
+    let hardwareCost = 0; // Hardware cost only (without monthly fees)
 
     Object.values(productDetails).forEach((detail) => {
       // Only include buy products in installation amount and hardware price
@@ -151,8 +151,8 @@ export function EditClientModal({
           ? detail.sellingPrice 
           : detail.purchasePrice;
         installation += priceForInstallation * detail.quantity;
-        // Hardware Price uses the same price as installation
-        hardwarePrice += priceForInstallation * detail.quantity;
+        // Hardware cost (without monthly fees)
+        hardwareCost += priceForInstallation * detail.quantity;
       }
       // Monthly fee is per product, not per unit - just sum the monthlyFee values
       // Ensure monthlyFee is a valid number
@@ -161,11 +161,16 @@ export function EditClientModal({
       qty += detail.quantity;
     });
 
+    // Add total monthly fees to installation amount
+    installation += fee;
+    // Hardware Price does NOT include monthly fees
+
     return {
       installationAmount: installation,
       totalMonthlyFee: fee,
       totalProductQuantity: qty,
-      calculatedHardwarePrice: hardwarePrice,
+      calculatedHardwarePrice: hardwareCost, // For display (hardware cost only, no monthly fees)
+      hardwareCostOnly: hardwareCost, // For saving to DB (same as display)
     };
   }, [productDetails]);
 
@@ -186,16 +191,18 @@ export function EditClientModal({
       return 0;
     }
     
-    // Calculate Profit One Shot (one-time revenue: Starter pack + Hardware sell)
+    // Calculate Profit One Shot (one-time revenue: Starter pack + Hardware sell + Monthly fee)
     const starterPack = starterPackPrice ? parseFloat(starterPackPrice) : 0;
-    const finalHardwarePrice = manualHardwarePrice !== null && manualHardwarePrice !== "" 
+    // For monthsLeft calculation, use hardware cost only (without monthly fees)
+    // Monthly fee will be added separately in profit_one_shot
+    const finalHardwarePriceForCalc = manualHardwarePrice !== null && manualHardwarePrice !== "" 
       ? parseFloat(manualHardwarePrice) 
-      : calculatedHardwarePrice;
-    const hardwareSell = finalHardwarePrice || 0;
-    const profitOneShot = starterPack + hardwareSell;
+      : hardwareCostOnly;
+    const hardwareSell = finalHardwarePriceForCalc || 0;
+    const profitOneShot = starterPack + hardwareSell + finalMonthlyFee;
     
-    // Net after first month: Profit One Shot + Monthly Fee - Investment
-    const netMonth1 = profitOneShot + finalMonthlyFee - finalInstallation;
+    // Net after first month: Profit One Shot (already includes monthly fee) - Investment
+    const netMonth1 = profitOneShot - finalInstallation;
     
     if (netMonth1 >= 0) {
       // Covered in first month
@@ -208,7 +215,7 @@ export function EditClientModal({
       // Total: 1 (first month) + additional months
       return 1 + Math.ceil(remainingBalance / finalMonthlyFee);
     }
-  }, [installationAmount, totalMonthlyFee, calculatedHardwarePrice, manualTotalSoldAmount, manualTotalMonthlyFee, manualHardwarePrice, starterPackPrice]);
+  }, [installationAmount, totalMonthlyFee, hardwareCostOnly, manualTotalSoldAmount, manualTotalMonthlyFee, manualHardwarePrice, starterPackPrice]);
 
   // Handle product selection change
   const handleProductSelectionChange = (productIds: string[]) => {
@@ -229,8 +236,8 @@ export function EditClientModal({
             monthlyFeeDisplay: "",
             stockActuel: product.stock_actuel ?? product.quantity ?? 0,
             purchasePrice: product.purchase_price,
-            sellingPrice: 0, // Start with 0 so it uses purchase price by default
-            sellingPriceDisplay: "", // Empty by default, will use purchase price
+            sellingPrice: product.purchase_price, // Default to purchase price
+            sellingPriceDisplay: product.purchase_price > 0 ? product.purchase_price.toString() : "", // Pre-fill with purchase price
             rentPrice: product.rent_price ?? 0,
             type: "buy", // Default to buy
             originalQuantity: 0, // New product, no original quantity
@@ -265,9 +272,14 @@ export function EditClientModal({
         // Clear monthly fee when switching to "buy"
         monthlyFee: type === "buy" ? 0 : (detail.monthlyFee || detail.rentPrice || 0),
         monthlyFeeDisplay: type === "buy" ? "" : (detail.monthlyFeeDisplay || String(detail.rentPrice || 0)),
-        // Keep selling price when switching types
-        sellingPrice: detail.sellingPrice || 0,
-        sellingPriceDisplay: detail.sellingPriceDisplay || (detail.sellingPrice > 0 ? detail.sellingPrice.toString() : ""),
+        // When switching to "buy", set selling price to purchase price if not already set
+        // When switching to "rent", keep existing selling price
+        sellingPrice: type === "buy" && (!detail.sellingPrice || detail.sellingPrice === 0) 
+          ? detail.purchasePrice 
+          : (detail.sellingPrice || 0),
+        sellingPriceDisplay: type === "buy" && (!detail.sellingPrice || detail.sellingPrice === 0)
+          ? detail.purchasePrice.toString()
+          : (detail.sellingPriceDisplay || (detail.sellingPrice > 0 ? detail.sellingPrice.toString() : "")),
       },
     });
   };
@@ -451,10 +463,11 @@ export function EditClientModal({
         : totalMonthlyFee;
       const finalMonthsLeft = finalTotalMonthlyFee > 0 ? Math.ceil(finalInstallationAmount / finalTotalMonthlyFee) : monthsLeft;
       
-      // Use manually entered hardware price if provided, otherwise use calculated value
+      // Use manually entered hardware price if provided, otherwise use hardware cost only (without monthly fees)
+      // Note: For display, we show hardwarePrice with monthly fees, but for saving we store hardware cost only
       const finalHardwarePrice = manualHardwarePrice !== null && manualHardwarePrice !== "" 
         ? parseFloat(manualHardwarePrice) 
-        : calculatedHardwarePrice;
+        : hardwareCostOnly;
 
       // Update client
       await updateClient(client.id, {
@@ -716,16 +729,16 @@ export function EditClientModal({
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                value={detail.sellingPriceDisplay ?? (detail.sellingPrice === 0 ? "" : detail.sellingPrice.toString())}
+                                value={detail.sellingPriceDisplay ?? (detail.sellingPrice > 0 ? detail.sellingPrice.toString() : product.purchase_price.toString())}
                                 onChange={(e) =>
                                     handleSellingPriceChange(product.id, e.target.value)
                                 }
                                 disabled={isSaving}
-                                placeholder={`Par défaut: ${product.purchase_price.toFixed(2)}€ (prix d'achat)`}
+                                placeholder={product.purchase_price.toFixed(2)}
                               />
                               <p className="text-xs text-muted-foreground">
-                                {detail.sellingPrice && detail.sellingPrice > 0 
-                                  ? `Utilisé: ${detail.sellingPrice.toFixed(2)}€` 
+                                {detail.sellingPrice && detail.sellingPrice !== product.purchase_price
+                                  ? `Personnalisé: ${detail.sellingPrice.toFixed(2)}€ (défaut: ${product.purchase_price.toFixed(2)}€)`
                                   : `Par défaut: ${product.purchase_price.toFixed(2)}€ (prix d'achat)`}
                               </p>
                             </div>

@@ -219,7 +219,8 @@ export function ClientDetailsModal({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Starter Pack: {formatCurrencyFull(client.starter_pack_price || 0)} • 
-                            Hardware: {formatCurrencyFull(client.hardware_price || 0)}
+                            Hardware: {formatCurrencyFull(client.hardware_price || 0)} • 
+                            Frais Mensuels: {formatCurrencyFull(displayMonthlyFee)}
                           </p>
                         </div>
                       </div>
