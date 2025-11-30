@@ -51,14 +51,14 @@ export function ClientCard({
   return (
     <Card className="hover-elevate" data-testid={`card-client-${client.client_name.toLowerCase().replace(/\s+/g, "-")}`}>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            <span>{client.client_name}</span>
+        <CardTitle className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Users className="h-5 w-5 text-primary flex-shrink-0" />
+            <span className="truncate">{client.client_name}</span>
           </div>
           <Badge
             variant={metrics.is_profitable ? "default" : "destructive"}
-            className={metrics.is_profitable ? "bg-green-500 hover:bg-green-600" : ""}
+            className={`text-xs whitespace-nowrap ${metrics.is_profitable ? "bg-green-500 hover:bg-green-600" : ""}`}
           >
             {metrics.is_profitable ? "Profitable" : "Still covering investment"}
           </Badge>
