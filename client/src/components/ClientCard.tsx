@@ -117,7 +117,6 @@ export function ClientCard({
                 calculateProfitableDate(client.contract_start_date, client.months_left) || 
                 `${client.months_left} ${client.months_left === 1 ? "mois" : "mois"}`}
             </p>
-            <p className="text-xs text-muted-foreground">(calculé automatiquement)</p>
           </div>
         </div>
         <div className="flex gap-2">
