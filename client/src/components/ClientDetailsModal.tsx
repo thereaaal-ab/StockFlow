@@ -79,9 +79,6 @@ export function ClientDetailsModal({
                     <p className="text-xl font-bold text-primary">
                       {formatCurrencyFull(metrics.installation_costs)}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      (calculé automatiquement depuis les produits)
-                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -92,13 +89,6 @@ export function ClientDetailsModal({
                     <p className="text-xl font-bold">
                       {formatCurrencyFull(displayMonthlyFee)}
                     </p>
-                    {calculatedMonthlyFee > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        {client.monthly_fee && client.monthly_fee > 0 
-                          ? `Valeur manuelle (calculé: ${formatCurrencyFull(calculatedMonthlyFee)})`
-                          : `Calculé automatiquement depuis les produits`}
-                      </p>
-                    )}
                   </div>
                 </div>
 
@@ -122,9 +112,6 @@ export function ClientDetailsModal({
                       {metrics.profitability_date || 
                         calculateProfitableDate(client.contract_start_date, client.months_left) || 
                         `${client.months_left} ${client.months_left === 1 ? "mois" : "mois"}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      (calculé automatiquement)
                     </p>
                   </div>
                 </div>
@@ -183,17 +170,11 @@ export function ClientDetailsModal({
                                 <p className="text-lg font-bold text-red-500">
                                   -{formatCurrencyFull(metrics.installation_costs)}
                                 </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Coûts d'installation (prix d'achat)
-                                </p>
                               </div>
                               <div className="space-y-1">
                                 <p className="text-xs text-muted-foreground">Revenus (Positif)</p>
                                 <p className="text-lg font-bold text-green-500">
                                   +{formatCurrencyFull(metrics.total_revenue)}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Revenus collectés
                                 </p>
                               </div>
                             </div>
@@ -225,9 +206,6 @@ export function ClientDetailsModal({
                           <p className="text-lg font-bold text-red-500">
                             -{formatCurrencyFull(metrics.total_investment)}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            Coûts d'installation uniquement (prix d'achat)
-                          </p>
                         </div>
                       </div>
                       <div className="mt-4 pt-4 border-t">
@@ -242,8 +220,6 @@ export function ClientDetailsModal({
                           <p className="text-xs text-muted-foreground">
                             Starter Pack: {formatCurrencyFull(client.starter_pack_price || 0)} • 
                             Hardware: {formatCurrencyFull(client.hardware_price || 0)}
-                            <br />
-                            (Revenus uniques - Frais mensuels non inclus)
                           </p>
                         </div>
                       </div>
@@ -255,9 +231,6 @@ export function ClientDetailsModal({
                           </div>
                           <p className="text-lg font-bold text-green-500">
                             +{formatCurrencyFull(metrics.profit_mensuel)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Frais mensuels totaux du client (profit mensuel)
                           </p>
                         </div>
                       </div>
