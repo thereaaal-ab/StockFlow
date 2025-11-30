@@ -56,14 +56,12 @@ export function ClientCard({
             <Users className="h-5 w-5 text-primary" />
             <span>{client.client_name}</span>
           </div>
-          {client.contract_start_date && (
-            <Badge
-              variant={metrics.is_profitable ? "default" : "destructive"}
-              className={metrics.is_profitable ? "bg-green-500 hover:bg-green-600" : ""}
-            >
-              {metrics.is_profitable ? "Profitable" : "Still covering investment"}
-            </Badge>
-          )}
+          <Badge
+            variant={metrics.is_profitable ? "default" : "destructive"}
+            className={metrics.is_profitable ? "bg-green-500 hover:bg-green-600" : ""}
+          >
+            {metrics.is_profitable ? "Profitable" : "Still covering investment"}
+          </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -83,22 +81,20 @@ export function ClientCard({
             <p className="text-lg font-bold">{formatCurrencyCompact(displayMonthlyFee)}</p>
           </div>
         </div>
-        {client.contract_start_date && (
-          <div className="border-t pt-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Flux Net</span>
-              <p className={`text-lg font-bold ${
-                metrics.net_cash_flow >= 0 ? "text-green-500" : "text-red-500"
-              }`}>
-                {metrics.net_cash_flow >= 0 ? "+" : ""}
-                {formatCurrencyCompact(metrics.net_cash_flow)}
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Revenus - Coûts
+        <div className="border-t pt-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Flux Net</span>
+            <p className={`text-lg font-bold ${
+              metrics.net_cash_flow >= 0 ? "text-green-500" : "text-red-500"
+            }`}>
+              {metrics.net_cash_flow >= 0 ? "+" : ""}
+              {formatCurrencyCompact(metrics.net_cash_flow)}
             </p>
           </div>
-        )}
+          <p className="text-xs text-muted-foreground mt-1">
+            Revenus - Coûts
+          </p>
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
