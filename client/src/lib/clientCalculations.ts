@@ -27,8 +27,8 @@ export interface ClientCalculationResult {
   status: "profitable" | "covering_investment";
   // Cash flow metrics
   installation_costs: number; // Negative: what we spent (sum of purchase prices)
-  profit_one_shot: number; // First month benefits: Starter pack + Hardware sell + Monthly fee (first month)
-  profit_mensuel: number; // Monthly fee (benefit)
+  profit_one_shot: number; // First month benefits: Starter pack + Hardware sell (monthly fee excluded)
+  profit_mensuel: number; // Cumulative monthly fees (total collected to date)
   total_revenue: number; // Positive: what we collected
   net_cash_flow: number; // Net: positive - negative (carries forward negative balance)
   months_to_cover: number; // Number of months until investment is covered (0 if covered in first month)
@@ -77,9 +77,11 @@ export function calculateTotalMonthlyFeeFromProducts(
 
 /**
  * Calculate installation costs
- * Installation costs = sum of prices for all hardware installed (type = "buy") + total monthly fees
- * Uses selling price (clientPrice) if entered, otherwise purchase price (default)
- * Example: Kiosk 500€ (purchase) or 2100€ (selling if entered) + Printer 500€ + Monthly fees 400€ = 1400€ or 3000€
+ * Installation costs = sum of purchase prices for ALL products (buy AND rent)
+ * For buy products: Uses selling price (clientPrice) if entered, otherwise purchase price (default)
+ * For rent products: Always uses purchase_price (original price)
+ * Monthly fees are NOT included in installation costs
+ * Example: Phones (buy) 200€ + Laptop (buy) 2000€ + Printer (rent) 500€ = 2700€
  * This matches "Montant d'installation" and "Investissement Total"
  */
 export function calculateInstallationCosts(
@@ -93,37 +95,36 @@ export function calculateInstallationCosts(
   
   if (client.products && client.products.length > 0) {
     client.products.forEach((clientProduct) => {
-      // Only include products where type is "buy" (not "rent")
-      // If type is undefined, treat it as "buy" for backward compatibility
-      if (clientProduct.type === "rent") {
-        return; // Skip rent products
-      }
-      
-      // Use selling price (clientPrice) if entered and > 0, otherwise use purchase price
       let price = 0;
-      if (clientProduct.clientPrice && clientProduct.clientPrice > 0) {
-        // Use selling price if entered
-        price = clientProduct.clientPrice;
-      } else {
-        // Use purchase price as default
+      
+      if (clientProduct.type === "rent") {
+        // For rent products: always use purchase_price (original price)
         if (clientProduct.purchasePrice !== undefined) {
           price = clientProduct.purchasePrice;
         } else {
           const product = allProducts.find((p) => p.id === clientProduct.productId);
           price = product?.purchase_price || 0;
         }
+      } else {
+        // For buy products: Use selling price (clientPrice) if entered and > 0, otherwise use purchase price
+        if (clientProduct.clientPrice && clientProduct.clientPrice > 0) {
+          // Use selling price if entered
+          price = clientProduct.clientPrice;
+        } else {
+          // Use purchase price as default
+          if (clientProduct.purchasePrice !== undefined) {
+            price = clientProduct.purchasePrice;
+          } else {
+            const product = allProducts.find((p) => p.id === clientProduct.productId);
+            price = product?.purchase_price || 0;
+          }
+        }
       }
       costs += price * (clientProduct.quantity || 0);
     });
   }
   
-  // Add total monthly fees to installation costs
-  const totalMonthlyFee = calculateTotalMonthlyFeeFromProducts(client);
-  const monthlyFee = client.monthly_fee && client.monthly_fee > 0 
-    ? client.monthly_fee 
-    : totalMonthlyFee;
-  costs += monthlyFee;
-  
+  // Monthly fees are NOT included in installation costs
   return costs; // This is a positive number representing costs (will be displayed as negative)
 }
 
@@ -249,16 +250,23 @@ export function calculateClientMetrics(
   const totalInvestment = installationCosts;
 
   // Calculate Profit One Shot (first month one-time benefits)
-  // Starter pack + Hardware (what client pays) + Monthly fee (first month only)
+  // Starter pack + Hardware (what client pays)
+  // Monthly fee is NOT included in Profit One Shot
   // Use the hardware_price field directly (what client pays for hardware)
   const starterPack = client.starter_pack_price || 0;
   const hardwareSell = client.hardware_price || 0; // What client pays for hardware
   
-  // Profit One Shot = first month revenue (Starter pack + Hardware sell + Monthly fee)
-  const profitOneShot = starterPack + hardwareSell + monthlyFee;
+  // Profit One Shot = first month one-time revenue (Starter pack + Hardware sell)
+  const profitOneShot = starterPack + hardwareSell;
   
-  // Profit Mensuel = monthly fee only
-  const profitMensuel = monthlyFee;
+  // Profit Mensuel = cumulative monthly fees (total collected to date)
+  // If contract has started, count the current month (monthsPassed + 1)
+  // Example: Contract starts Nov 1, today Nov 30 → monthsPassed = 0, count 1 month
+  // Example: Contract starts Oct 1, today Nov 30 → monthsPassed = 1, count 2 months
+  // If no contract start date, assume 0 (no months passed yet)
+  const profitMensuel = contractStartDate 
+    ? (monthsPassed + 1) * monthlyFee 
+    : 0;
 
   // Calculate total revenue and net cash flow with month-to-month carry forward
   let totalRevenue = 0;
@@ -267,12 +275,13 @@ export function calculateClientMetrics(
   let profitabilityDate: string | null = null;
   
   if (contractStartDate) {
-    // Month 1: Negative (installation costs) + Positive (profit one shot, which includes monthly fee)
-    const month1Net = profitOneShot - installationCosts;
+    // Month 1: Negative (installation costs) + Positive (profit one shot + monthly fee)
+    // profitOneShot does NOT include monthly fee, so we add it separately
+    const month1Net = profitOneShot + monthlyFee - installationCosts;
     
     if (month1Net >= 0) {
       // Covered in first month
-      totalRevenue = profitOneShot; // profitOneShot already includes monthly fee
+      totalRevenue = profitOneShot + monthlyFee; // profitOneShot + first month's monthly fee
       netCashFlow = month1Net;
       monthsToCover = 0;
       // Show contract start date (covered in first month)
@@ -298,14 +307,14 @@ export function calculateClientMetrics(
         }
       }
       
-      // Calculate total revenue: first month (already in profitOneShot) + additional months needed to cover
-      // profitOneShot already includes monthly fee for first month, so add (monthsToCover - 1) * monthlyFee
-      totalRevenue = profitOneShot + ((monthsToCover - 1) * monthlyFee);
+      // Calculate total revenue: first month (profitOneShot + monthlyFee) + additional months needed to cover
+      // profitOneShot does NOT include monthly fee, so add monthsToCover * monthlyFee
+      totalRevenue = profitOneShot + (monthsToCover * monthlyFee);
       
       // Calculate net cash flow (carry forward negative balance month-to-month)
-      // Month 1: -installationCosts + profitOneShot (which includes first month's monthly fee)
+      // Month 1: -installationCosts + profitOneShot + monthlyFee
       // Month 2+: monthlyFee each month until covered
-      netCashFlow = profitOneShot - installationCosts + ((monthsToCover - 1) * monthlyFee);
+      netCashFlow = profitOneShot - installationCosts + (monthsToCover * monthlyFee);
       
       // Calculate profitability date
       // monthsToCover = total months needed (including first month)
@@ -330,8 +339,9 @@ export function calculateClientMetrics(
     }
   } else {
     // No contract start date, assume first month only
-    totalRevenue = profitOneShot;
-    netCashFlow = profitOneShot - installationCosts;
+    // profitOneShot does NOT include monthly fee, so add it for first month
+    totalRevenue = profitOneShot + monthlyFee;
+    netCashFlow = profitOneShot + monthlyFee - installationCosts;
     if (netCashFlow >= 0) {
       monthsToCover = 0;
       // If no contract start date but covered, use today's date

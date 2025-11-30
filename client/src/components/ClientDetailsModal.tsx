@@ -219,8 +219,7 @@ export function ClientDetailsModal({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Starter Pack: {formatCurrencyFull(client.starter_pack_price || 0)} • 
-                            Hardware: {formatCurrencyFull(client.hardware_price || 0)} • 
-                            Frais Mensuels: {formatCurrencyFull(displayMonthlyFee)}
+                            Hardware: {formatCurrencyFull(client.hardware_price || 0)}
                           </p>
                         </div>
                       </div>
@@ -228,7 +227,7 @@ export function ClientDetailsModal({
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Euro className="h-4 w-4" />
-                            <span>Profit Mensuel</span>
+                            <span>Frais Mensuels Cumulatifs</span>
                           </div>
                           <p className="text-lg font-bold text-green-500">
                             +{formatCurrencyFull(metrics.profit_mensuel)}
