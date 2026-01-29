@@ -35,6 +35,7 @@ interface SelectedProduct {
   stockActuel: number; // Current available stock
   purchasePrice: number; // Purchase price (what we paid)
   sellingPrice: number; // Selling price (what we sell for)
+  sellingPriceDisplay?: string; // String representation for input to avoid leading zeros
   rentPrice: number; // Rental price (what we charge for rent)
   type: "buy" | "rent"; // "buy" for purchase, "rent" for rental
   originalQuantity: number; // Original quantity from client (for stock calculation)
@@ -158,10 +159,10 @@ export function EditClientModal({
         // For rent products: Always use purchase_price (original price)
         installation += detail.purchasePrice * detail.quantity;
       }
-      // Monthly fee is per product, not per unit - just sum the monthlyFee values
+      // Monthly fee is per unit - multiply by quantity
       // Ensure monthlyFee is a valid number
       const monthlyFee = typeof detail.monthlyFee === 'number' ? detail.monthlyFee : parseFloat(String(detail.monthlyFee)) || 0;
-      fee += monthlyFee; // Sum directly, do NOT multiply by quantity
+      fee += monthlyFee * detail.quantity;
       qty += detail.quantity;
     });
 

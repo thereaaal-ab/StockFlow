@@ -230,7 +230,7 @@ export function BulkImportClientsDialog({ onImportComplete }: BulkImportClientsD
             installationAmount += (cp.purchasePrice || 0) * cp.quantity;
             hardwarePrice += (cp.purchasePrice || 0) * cp.quantity;
           } else if (cp.type === 'rent') {
-            totalMonthlyFee += cp.monthlyFee; // Monthly fee is per product, not per unit
+            totalMonthlyFee += cp.monthlyFee * cp.quantity; // Monthly fee is per unit
           }
         });
         
@@ -534,4 +534,3 @@ export function BulkImportClientsDialog({ onImportComplete }: BulkImportClientsD
     </Dialog>
   );
 }
-

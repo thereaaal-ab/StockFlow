@@ -56,8 +56,8 @@ function isInFirstMonth(date: Date, contractStartDate: Date): boolean {
 
 /**
  * Calculate total monthly fee from all products assigned to a client
- * Total = sum of monthlyFee for each product (NOT multiplied by quantity)
- * The monthly fee is per product, not per unit
+ * Total = sum of monthlyFee * quantity for each product
+ * The monthly fee is per unit
  */
 export function calculateTotalMonthlyFeeFromProducts(
   client: {
@@ -70,8 +70,7 @@ export function calculateTotalMonthlyFeeFromProducts(
   
   return client.products.reduce((total, product) => {
     const monthlyFee = typeof product.monthlyFee === 'number' ? product.monthlyFee : parseFloat(String(product.monthlyFee)) || 0;
-    // Sum the monthlyFee directly, do NOT multiply by quantity
-    return total + monthlyFee;
+    return total + (monthlyFee * (product.quantity || 0));
   }, 0);
 }
 

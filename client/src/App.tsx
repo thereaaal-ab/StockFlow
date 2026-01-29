@@ -31,6 +31,9 @@ function Router() {
 }
 
 function App() {
+  // Authentication required: set to false to always require Google login
+  const SKIP_AUTH = false;
+
   const { isAuthenticated, loading } = useAuth();
   const style = {
     "--sidebar-width": "16rem",
@@ -54,8 +57,8 @@ function App() {
     );
   }
 
-  // Show login page if not authenticated
-  if (!isAuthenticated) {
+  // Show login page if not authenticated (unless SKIP_AUTH is true)
+  if (!SKIP_AUTH && !isAuthenticated) {
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>

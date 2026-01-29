@@ -8,7 +8,7 @@ import { dirname } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode }) => {
   // Load env file from project root (where vite.config.ts is located)
   // This ensures .env file is loaded even when root is set to client directory
   const env = loadEnv(mode, __dirname, '');

@@ -34,6 +34,29 @@ export default function HardwareTotal() {
     await deleteProduct(productId);
   };
 
+  const handleUpdateCategory = async (
+    product: Product,
+    categoryId?: string,
+    categoryName?: string
+  ) => {
+    await updateProduct({
+      ...product,
+      category_id: categoryId,
+      category: categoryName || "Other",
+    });
+  };
+
+  const handleUpdateQuantity = async (product: Product, quantity: number) => {
+    const totalValue = quantity * product.purchase_price;
+    await updateProduct({
+      ...product,
+      quantity,
+      hardware_total: quantity,
+      stock_actuel: quantity,
+      total_value: totalValue,
+    });
+  };
+
   // Calculate total investment based on hardware_total (original quantity purchased)
   // This shows the total value of all hardware purchased, not just what's currently in stock
   const totalInvestment = products.reduce(
@@ -87,8 +110,13 @@ export default function HardwareTotal() {
           <HardwareTable
             data={filteredData}
             showHardwareTotal={true}
+            showCategory={true}
+            enableInlineCategoryEdit={true}
+            enableInlineQuantityEdit={true}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onUpdateCategory={handleUpdateCategory}
+            onUpdateQuantity={handleUpdateQuantity}
           />
 
           <div className="flex items-center justify-between text-sm text-muted-foreground">

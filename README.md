@@ -1,112 +1,145 @@
-# StockFlow
+# StockFlow - Gestion d'Inventaire
 
-A modern inventory and client management system built with React, TypeScript, and Supabase.
+Application de gestion d'inventaire matériel avec suivi client, analytics et système multi-utilisateurs.
 
-## Prerequisites
+## 🚀 Démarrage rapide
 
-- Node.js 
-- npm
-- A Supabase account and project
+### Prérequis
 
-## Getting Started
+- Node.js 20+ 
+- npm ou yarn
+- Compte Supabase (pour la base de données)
 
-### 1. Install Dependencies
+### Installation
 
+1. **Cloner le repository**
+```bash
+git clone <repository-url>
+cd StockFlow
+```
+
+2. **Installer les dépendances**
 ```bash
 npm install
 ```
-### 2. Environment Setup
 
-Copy the example environment file and fill in your values:
+3. **Configurer les variables d'environnement**
 
+Copiez le fichier `.env.example` vers `.env` :
 ```bash
 cp .env.example .env
 ```
 
-Or on Windows:
-```powershell
-Copy-Item .env.example .env
+Puis éditez `.env` et configurez les variables :
+
+```env
+# Supabase Configuration
+SUPABASE_URL=https://trihldwbuukpqesttwnk.supabase.co
+VITE_SUPABASE_URL=https://trihldwbuukpqesttwnk.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+SUPABASE_DB_URL=postgresql://postgres.trihldwbuukpqesttwnk:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# Authentication Configuration
+VITE_SKIP_AUTH=true  # Set to "false" to require authentication
 ```
 
-Then edit the `.env` file with your Supabase credentials. The `.env.example` file contains a template with all required variables.
+### Configuration de l'authentification
 
-**Where to find these values:**
-- Go to your Supabase project dashboard
-- **Project URL**: Settings → API → Project URL
-- **Anon Key**: Settings → API → Project API keys → `anon` `public`
-- **Service Role Key**: Settings → API → Project API keys → `service_role` `secret`
-- **Database URL**: Settings → Database → Connection string → URI mode
-### 3. Database Setup
+La variable `VITE_SKIP_AUTH` contrôle l'authentification :
 
-Run the database schema in your Supabase SQL Editor:
+- **`VITE_SKIP_AUTH=true`** : Désactive l'authentification (utile pour le développement local sans Google OAuth)
+- **`VITE_SKIP_AUTH=false`** : Active l'authentification (recommandé pour la production)
 
-1. Open your Supabase project dashboard
-2. Go to SQL Editor
-3. Open the `database_schema.sql` file
-4. Copy and paste the entire content into the SQL Editor
-5. Click "Run" to execute
+⚠️ **Important** : En production, mettez toujours `VITE_SKIP_AUTH=false` pour protéger votre application.
 
-### 4. Run the Development Server
+### Obtenir la chaîne de connexion Supabase
 
+1. Allez sur votre [dashboard Supabase](https://supabase.com/dashboard/project/trihldwbuukpqesttwnk)
+2. Naviguez vers **Settings** > **Database**
+3. Dans **Connection string**, sélectionnez **URI**
+4. Copiez la chaîne complète et remplacez `SUPABASE_DB_URL` dans `.env`
+
+### Lancer l'application
+
+**Mode développement :**
 ```bash
 npm run dev
 ```
 
-The application will be available at `http://localhost:5000`
+L'application sera disponible sur `http://localhost:3000`
 
-### 5. Authentication
-
-The app uses Google OAuth for authentication. Make sure to:
-
-1. Enable Google provider in Supabase: Authentication → Providers → Google
-2. Configure your Google OAuth credentials
-3. Add redirect URLs in Supabase: `http://localhost:5000` (and your production URL if applicable)
-
-## Available Scripts
-
-- `npm run dev` - Start the development server
-- `npm run build` - Build for production
-- `npm run start` - Start the production server
-- `npm run check` - Run TypeScript type checking
-- `npm run db:push` - Push database schema changes to Supabase
-
-## Features
-
-- 📦 **Inventory Management** - Track products, stock levels, and hardware
-- 👥 **Client Management** - Manage clients, contracts, and subscriptions
-- 📊 **Analytics Dashboard** - View revenue, commissions, and key metrics
-- 🎨 **Modern UI** - Built with React, TypeScript, and Tailwind CSS
-- 🔐 **Secure Authentication** - Google OAuth integration via Supabase
-
-## Project Structure
-
-```
-├── client/          # Frontend React application
-├── server/          # Backend Express server
-├── shared/          # Shared TypeScript schemas
-├── database_schema.sql  # Complete database schema
-├── .env.example    # Environment variables template (copy to .env)
-└── .env            # Environment variables (create from .env.example)
+**Build pour production :**
+```bash
+npm run build
+npm start
 ```
 
-## Troubleshooting
+### Créer les tables dans Supabase
 
-**Environment variables not loading?**
-- Make sure the `.env` file is in the root directory
-- Restart the dev server after creating/updating `.env`
-- Check that all `VITE_` prefixed variables are set for frontend
+```bash
+npm run db:push
+```
 
-**Database connection issues?**
-- Verify your `SUPABASE_DB_URL` is correct
-- Check that your Supabase project is active
-- Ensure the database schema has been run
+## 📁 Structure du projet
 
-**Authentication not working?**
-- Verify Google OAuth is enabled in Supabase
-- Check redirect URLs are configured correctly
-- Ensure your Google OAuth credentials are valid
+```
+StockFlow/
+├── client/              # Application React frontend
+│   ├── src/
+│   │   ├── components/  # Composants réutilisables
+│   │   ├── pages/       # Pages de l'application
+│   │   ├── hooks/       # Hooks React personnalisés
+│   │   └── lib/         # Utilitaires
+│   └── index.html
+├── server/              # Backend Express
+│   ├── index.ts         # Serveur principal
+│   ├── routes.ts        # Routes API
+│   └── db.ts            # Configuration base de données
+├── shared/              # Code partagé
+│   └── schema.ts        # Schéma Drizzle ORM
+└── .env                 # Variables d'environnement (ne pas commiter)
+```
 
-## License
+## 🔧 Scripts disponibles
+
+- `npm run dev` - Démarre le serveur de développement
+- `npm run build` - Build pour la production
+- `npm start` - Lance le serveur de production
+- `npm run check` - Vérification TypeScript
+- `npm run db:push` - Push le schéma vers la base de données
+
+## 📚 Documentation
+
+Pour plus de détails, consultez :
+- [DOCUMENTATION_REPO.md](./DOCUMENTATION_REPO.md) - Documentation technique complète
+- [DEPLOYMENT.md](./DEPLOYMENT.md) - Guide de déploiement
+
+## 🛠️ Technologies utilisées
+
+### Frontend
+- React 18 + TypeScript
+- TanStack Query (React Query)
+- Tailwind CSS + shadcn/ui
+- Recharts (graphiques)
+- Wouter (routing)
+
+### Backend
+- Express.js
+- Drizzle ORM
+- Supabase (PostgreSQL + Auth)
+- Vite (dev server + build)
+
+## 🔐 Sécurité
+
+- Le fichier `.env` est dans `.gitignore` et ne doit jamais être commité
+- La clé `SUPABASE_SERVICE_ROLE_KEY` ne doit JAMAIS être exposée au frontend
+- En production, définissez toujours `VITE_SKIP_AUTH=false`
+
+## 📝 Licence
 
 MIT
-

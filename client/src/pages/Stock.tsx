@@ -55,6 +55,29 @@ export default function Stock() {
     await deleteProduct(productId);
   };
 
+  const handleUpdateCategory = async (
+    product: Product,
+    categoryId?: string,
+    categoryName?: string
+  ) => {
+    await updateProduct({
+      ...product,
+      category_id: categoryId,
+      category: categoryName || "Other",
+    });
+  };
+
+  const handleUpdateQuantity = async (product: Product, quantity: number) => {
+    const totalValue = quantity * product.purchase_price;
+    await updateProduct({
+      ...product,
+      quantity,
+      hardware_total: quantity,
+      stock_actuel: quantity,
+      total_value: totalValue,
+    });
+  };
+
   const availableStockValue = filteredData
     .filter((item) => (item.stock_actuel ?? item.quantity ?? 0) > 0)
     .reduce((sum, item) => {
@@ -113,8 +136,13 @@ export default function Stock() {
             data={filteredData}
             showStock={true}
             showActions={true}
+            showCategory={true}
+            enableInlineCategoryEdit={true}
+            enableInlineQuantityEdit={true}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onUpdateCategory={handleUpdateCategory}
+            onUpdateQuantity={handleUpdateQuantity}
           />
 
           <div className="flex items-center justify-between text-sm text-muted-foreground">
