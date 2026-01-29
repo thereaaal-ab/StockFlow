@@ -4,8 +4,8 @@ A modern inventory and client management system built with React, TypeScript, an
 
 ## Prerequisites
 
-- Node.js (v18 or higher)
-- npm or yarn
+- Node.js 
+- npm
 - A Supabase account and project
 
 ## Getting Started
@@ -15,29 +15,20 @@ A modern inventory and client management system built with React, TypeScript, an
 ```bash
 npm install
 ```
-
 ### 2. Environment Setup
 
-Create a `.env` file in the root directory with the following variables:
+Copy the example environment file and fill in your values:
 
-```env
-# Supabase Project URL
-SUPABASE_URL=your_supabase_project_url
-
-# Frontend Supabase Configuration
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# Backend Supabase Configuration
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-
-# Database Connection String
-SUPABASE_DB_URL=your_postgresql_connection_string
-
-# Server Configuration
-PORT=5000
-NODE_ENV=development
+```bash
+cp .env.example .env
 ```
+
+Or on Windows:
+```powershell
+Copy-Item .env.example .env
+```
+
+Then edit the `.env` file with your Supabase credentials. The `.env.example` file contains a template with all required variables.
 
 **Where to find these values:**
 - Go to your Supabase project dashboard
@@ -45,7 +36,6 @@ NODE_ENV=development
 - **Anon Key**: Settings → API → Project API keys → `anon` `public`
 - **Service Role Key**: Settings → API → Project API keys → `service_role` `secret`
 - **Database URL**: Settings → Database → Connection string → URI mode
-
 ### 3. Database Setup
 
 Run the database schema in your Supabase SQL Editor:
@@ -95,7 +85,8 @@ The app uses Google OAuth for authentication. Make sure to:
 ├── server/          # Backend Express server
 ├── shared/          # Shared TypeScript schemas
 ├── database_schema.sql  # Complete database schema
-└── .env            # Environment variables (create this)
+├── .env.example    # Environment variables template (copy to .env)
+└── .env            # Environment variables (create from .env.example)
 ```
 
 ## Troubleshooting
