@@ -30,6 +30,9 @@ function Router() {
   );
 }
 
+// Set to true to bypass login temporarily (e.g. local dev without Google OAuth)
+const SKIP_AUTH = true;
+
 function App() {
   const { isAuthenticated, loading } = useAuth();
   const style = {
@@ -54,8 +57,8 @@ function App() {
     );
   }
 
-  // Show login page if not authenticated
-  if (!isAuthenticated) {
+  // Show login page if not authenticated (unless SKIP_AUTH is true)
+  if (!SKIP_AUTH && !isAuthenticated) {
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
