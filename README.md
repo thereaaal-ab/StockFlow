@@ -34,14 +34,14 @@ Puis éditez `.env` et configurez les variables :
 
 ```env
 # Supabase Configuration
-SUPABASE_URL=https://ptuosweivwyiwmguxagx.supabase.co
-VITE_SUPABASE_URL=https://ptuosweivwyiwmguxagx.supabase.co
+SUPABASE_URL=https://trihldwbuukpqesttwnk.supabase.co
+VITE_SUPABASE_URL=https://trihldwbuukpqesttwnk.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
-SUPABASE_DB_URL=postgresql://postgres.ptuosweivwyiwmguxagx:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+SUPABASE_DB_URL=postgresql://postgres.trihldwbuukpqesttwnk:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 
 # Server Configuration
-PORT=3210
+PORT=3000
 NODE_ENV=development
 
 # Authentication Configuration
@@ -59,7 +59,7 @@ La variable `VITE_SKIP_AUTH` contrôle l'authentification :
 
 ### Obtenir la chaîne de connexion Supabase
 
-1. Allez sur votre [dashboard Supabase](https://supabase.com/dashboard/project/ptuosweivwyiwmguxagx)
+1. Allez sur votre [dashboard Supabase](https://supabase.com/dashboard/project/trihldwbuukpqesttwnk)
 2. Naviguez vers **Settings** > **Database**
 3. Dans **Connection string**, sélectionnez **URI**
 4. Copiez la chaîne complète et remplacez `SUPABASE_DB_URL` dans `.env`
@@ -71,7 +71,7 @@ La variable `VITE_SKIP_AUTH` contrôle l'authentification :
 npm run dev
 ```
 
-L'application sera disponible sur `http://localhost:3210`
+L'application sera disponible sur `http://localhost:3000`
 
 **Build pour production :**
 ```bash

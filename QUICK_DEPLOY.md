@@ -18,11 +18,11 @@
 2. Add these environment variables (get values from your `.env` file):
 
 ```
-SUPABASE_URL=https://ptuosweivwyiwmguxagx.supabase.co
-VITE_SUPABASE_URL=https://ptuosweivwyiwmguxagx.supabase.co
+SUPABASE_URL=https://trihldwbuukpqesttwnk.supabase.co
+VITE_SUPABASE_URL=https://trihldwbuukpqesttwnk.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dW9zd2Vpdnd5aXdtZ3V4YWd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM1NzI3ODMsImV4cCI6MjA3OTE0ODc4M30.7OBus8MSO1QxxcInr42fovMgfg92VMBAH5oWq2dq4a4
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dW9zd2Vpdnd5aXdtZ3V4YWd4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzU3Mjc4MywiZXhwIjoyMDc5MTQ4NzgzfQ.B7cw-QChn1GAQXDy-tFm5JGJFYNl8ltcxKdcoqP-Nfg
-SUPABASE_DB_URL=postgresql://postgres.ptuosweivwyiwmguxagx:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+SUPABASE_DB_URL=postgresql://postgres.trihldwbuukpqesttwnk:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 NODE_ENV=production
 ```
 

@@ -31,9 +31,9 @@ function Router() {
 }
 
 function App() {
-  // Read SKIP_AUTH from environment variable (default to false for production safety)
-  const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
-  
+  // Authentication required: set to false to always require Google login
+  const SKIP_AUTH = false;
+
   const { isAuthenticated, loading } = useAuth();
   const style = {
     "--sidebar-width": "16rem",

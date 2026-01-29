@@ -16,11 +16,11 @@ Could you please provide me with:
 
 The connection string format should be:
 ```
-postgresql://postgres.ptuosweivwyiwmguxagx:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+postgresql://postgres.trihldwbuukpqesttwnk:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 ```
 
 Alternatively, I can retrieve it from the Supabase dashboard if you can grant me access to the project:
-- Project URL: https://supabase.com/dashboard/project/ptuosweivwyiwmguxagx
+- Project URL: https://supabase.com/dashboard/project/trihldwbuukpqesttwnk
 
 Thank you for your help!
 
@@ -41,5 +41,30 @@ To move forward, I'd need one of the following:
 3. **RLS policies** that allow read (and ideally write) access for the `anon` role in dev, so the app can display data even when not logged in.
 
 Thanks in advance.
+
+---
+
+## Message 3 — Google OAuth Configuration
+
+**Subject:** Google OAuth 404 error - Need Supabase dashboard access or OAuth configuration
+
+Hi,
+
+I'm trying to enable Google authentication (`VITE_SKIP_AUTH=false`) but I'm getting a 404 error after clicking "Continue with Google". 
+
+The issue is that Google OAuth needs to be configured in the Supabase dashboard, which requires either:
+
+1. **You configure Google OAuth** in the Supabase dashboard:
+   - Add redirect URLs: `http://localhost:3000/` and `http://localhost:3000`
+   - Set up Google OAuth provider with Client ID and Client Secret from Google Cloud Console
+   - See the file `OAUTH_SETUP.md` in the project for detailed instructions
+
+2. **OR invite me to the Supabase project** so I can configure it myself:
+   - Project URL: https://supabase.com/dashboard/project/trihldwbuukpqesttwnk
+   - I'll need "Owner" or "Admin" access to configure authentication settings
+
+For now, I'm working with `VITE_SKIP_AUTH=true` to bypass authentication, but we'll need proper OAuth configuration for production.
+
+Thanks!
 
 ---

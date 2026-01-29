@@ -9,16 +9,19 @@ export function useAuth() {
 
   useEffect(() => {
     // Get initial session (this automatically handles OAuth callbacks from URL hash)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      
-      // Clean up OAuth callback hash from URL if present
-      if (window.location.hash.includes('access_token') || window.location.hash.includes('error')) {
-        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-      }
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+        // Clean up OAuth callback hash from URL if present
+        if (window.location.hash.includes('access_token') || window.location.hash.includes('error')) {
+          window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+        }
+      })
+      .catch(() => {
+        setLoading(false);
+      });
 
     // Listen for auth changes
     const {
@@ -33,8 +36,8 @@ export function useAuth() {
   }, []);
 
   const signInWithGoogle = async () => {
-    // Get the current origin (works in both dev and production)
-    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    // Always redirect to home page after authentication
+    const redirectTo = `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
