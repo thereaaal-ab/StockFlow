@@ -10,6 +10,21 @@ import { Button } from "@/components/ui/button";
 import { Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Product } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useMemo, useState } from "react";
 
 interface HardwareItem {
   code: string;
@@ -28,8 +43,17 @@ interface HardwareTableProps {
   showActions?: boolean;
   showStock?: boolean;
   showHardwareTotal?: boolean; // If true, show hardware_total instead of stock_actuel
+  showCategory?: boolean;
+  enableInlineCategoryEdit?: boolean;
+  enableInlineQuantityEdit?: boolean;
   onEdit?: (product: Product) => void;
   onDelete?: (productId: string) => void;
+  onUpdateCategory?: (
+    product: Product,
+    categoryId?: string,
+    categoryName?: string
+  ) => Promise<void> | void;
+  onUpdateQuantity?: (product: Product, quantity: number) => Promise<void> | void;
 }
 
 export function HardwareTable({
@@ -37,9 +61,26 @@ export function HardwareTable({
   showActions = true,
   showStock = false,
   showHardwareTotal = false, // Default to showing stock_actuel
+  showCategory = true,
+  enableInlineCategoryEdit = false,
+  enableInlineQuantityEdit = false,
   onEdit,
   onDelete,
+  onUpdateCategory,
+  onUpdateQuantity,
 }: HardwareTableProps) {
+  const { categories, isLoading: categoriesLoading } = useCategories();
+  const [updatingCategoryId, setUpdatingCategoryId] = useState<string | null>(null);
+  const [updatingQuantityId, setUpdatingQuantityId] = useState<string | null>(null);
+  const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({});
+  const categoriesById = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach((category) => {
+      map.set(category.id, category.name);
+    });
+    return map;
+  }, [categories]);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("fr-FR", {
       style: "currency",
@@ -53,13 +94,74 @@ export function HardwareTable({
     return { label: "En stock", variant: "default" as const };
   };
 
+  const columnCount =
+    7 +
+    (showCategory ? 1 : 0) +
+    (showStock ? 1 : 0) +
+    (showActions ? 1 : 0);
+
+  const handleCategoryChange = async (product: Product, value: string) => {
+    if (!onUpdateCategory) return;
+    const selectedCategory = categories.find((category) => category.id === value);
+    setUpdatingCategoryId(product.id);
+    try {
+      await onUpdateCategory(
+        product,
+        value || undefined,
+        selectedCategory?.name || product.category
+      );
+    } finally {
+      setUpdatingCategoryId(null);
+    }
+  };
+
+  const handleQuantityCommit = async (product: Product, rawValue: string) => {
+    if (!onUpdateQuantity) return;
+    const nextQuantity = parseInt(rawValue, 10);
+    const currentBaseQuantity = showHardwareTotal
+      ? product.hardware_total ?? product.quantity
+      : product.stock_actuel ?? product.quantity;
+
+    if (Number.isNaN(nextQuantity)) {
+      setQuantityDrafts((prev) => {
+        const next = { ...prev };
+        delete next[product.id];
+        return next;
+      });
+      return;
+    }
+    if (nextQuantity === currentBaseQuantity) {
+      setQuantityDrafts((prev) => {
+        const next = { ...prev };
+        delete next[product.id];
+        return next;
+      });
+      return;
+    }
+    setUpdatingQuantityId(product.id);
+    try {
+      await onUpdateQuantity(product, nextQuantity);
+      setQuantityDrafts((prev) => {
+        const next = { ...prev };
+        delete next[product.id];
+        return next;
+      });
+    } catch (error) {
+      console.error("Error updating quantity:", error);
+      alert("Erreur lors de la mise à jour de la quantité");
+    } finally {
+      setUpdatingQuantityId(null);
+    }
+  };
+
   return (
     <div className="rounded-md border">
-      <Table>
+      <TooltipProvider delayDuration={150}>
+        <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-32">Code Produit</TableHead>
             <TableHead>Nom Produit</TableHead>
+            {showCategory && <TableHead className="w-64">Catégorie</TableHead>}
             <TableHead className="w-24 text-right">Quantité</TableHead>
             {showStock && <TableHead className="w-32">Statut</TableHead>}
             <TableHead className="w-32 text-right">Prix Achat</TableHead>
@@ -74,7 +176,7 @@ export function HardwareTable({
           {data.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={showActions ? (showStock ? 10 : 9) : (showStock ? 9 : 8)}
+                colSpan={columnCount}
                 className="h-24 text-center text-muted-foreground"
               >
                 Aucun matériel trouvé
@@ -152,12 +254,87 @@ export function HardwareTable({
               const displayQuantity = showHardwareTotal ? hardwareTotal : stockActuel;
               const status = showStock ? getStockStatus(stockActuel) : null;
               const hasId = "id" in item && item.id && item.id.startsWith("temp-") === false;
+              const categoryName =
+                (product.category_id && categoriesById.get(product.category_id)) ||
+                product.category ||
+                "Non spécifiée";
 
               return (
                 <TableRow key={product.id || item.code} data-testid={`row-hardware-${index}`}>
-                  <TableCell className="font-mono text-sm">{item.code}</TableCell>
-                  <TableCell className="font-medium">{item.name}</TableCell>
-                  <TableCell className="text-right">{displayQuantity}</TableCell>
+                  <TableCell className="font-medium">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">{item.name}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <span className="font-mono text-sm">{item.code}</span>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TableCell>
+                  {showCategory && (
+                    <TableCell className="w-48">
+                      {enableInlineCategoryEdit && onUpdateCategory ? (
+                        categoriesLoading ? (
+                          <span className="text-muted-foreground text-sm">
+                            Chargement...
+                          </span>
+                        ) : categories.length === 0 ? (
+                          <span className="text-muted-foreground text-sm">
+                            Aucune catégorie
+                          </span>
+                        ) : (
+                          <Select
+                            value={product.category_id || ""}
+                            onValueChange={(value) => handleCategoryChange(product, value)}
+                            disabled={updatingCategoryId === product.id}
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue placeholder="Sélectionner" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {categories.map((category) => (
+                                <SelectItem key={category.id} value={category.id}>
+                                  {category.name.charAt(0).toUpperCase() +
+                                    category.name.slice(1)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )
+                      ) : (
+                        <span>{categoryName}</span>
+                      )}
+                    </TableCell>
+                  )}
+                  <TableCell className="text-right">
+                    {enableInlineQuantityEdit && onUpdateQuantity && hasId ? (
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-20 rounded-md border border-input bg-background px-2 py-1 text-right text-sm text-foreground shadow-sm"
+                        value={
+                          quantityDrafts[product.id] !== undefined
+                            ? quantityDrafts[product.id]
+                            : String(displayQuantity)
+                        }
+                        onChange={(event) =>
+                          setQuantityDrafts((prev) => ({
+                            ...prev,
+                            [product.id]: event.target.value,
+                          }))
+                        }
+                        onBlur={(event) => handleQuantityCommit(product, event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            (event.target as HTMLInputElement).blur();
+                          }
+                        }}
+                        disabled={updatingQuantityId === product.id}
+                      />
+                    ) : (
+                      displayQuantity
+                    )}
+                  </TableCell>
                   {showStock && status && (
                     <TableCell>
                       <Badge variant={status.variant}>{status.label}</Badge>
@@ -211,7 +388,8 @@ export function HardwareTable({
             })
           )}
         </TableBody>
-      </Table>
+        </Table>
+      </TooltipProvider>
     </div>
   );
 }
