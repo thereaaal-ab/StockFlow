@@ -18,20 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCategories } from "@/hooks/useCategories";
-
-interface Product {
-  id: string;
-  code: string;
-  name: string;
-  quantity: number;
-  hardware_total?: number;
-  stock_actuel?: number;
-  purchase_price: number | string;
-  selling_price: number | string;
-  category?: string;
-  profit?: number | string;
-  total_value?: number | string;
-}
+import { Product } from "@/hooks/useProducts";
 
 interface EditProductModalProps {
   open: boolean;
@@ -80,10 +67,7 @@ export function EditProductModal({
           typeof product.selling_price === "string"
             ? product.selling_price
             : product.selling_price?.toString() || "0",
-        rent_price:
-          typeof product.rent_price === "string"
-            ? product.rent_price
-            : product.rent_price?.toString() || "0",
+        rent_price: product.rent_price?.toString() || "0",
         category_id: product.category_id || "",
       });
     }

@@ -30,10 +30,10 @@ function Router() {
   );
 }
 
-// Set to true to bypass login temporarily (e.g. local dev without Google OAuth)
-const SKIP_AUTH = true;
-
 function App() {
+  // Read SKIP_AUTH from environment variable (default to false for production safety)
+  const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
+  
   const { isAuthenticated, loading } = useAuth();
   const style = {
     "--sidebar-width": "16rem",

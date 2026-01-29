@@ -35,6 +35,7 @@ interface SelectedProduct {
   stockActuel: number; // Current available stock
   purchasePrice: number; // Purchase price (what we paid)
   sellingPrice: number; // Selling price (what we sell for)
+  sellingPriceDisplay?: string; // String representation for input to avoid leading zeros
   rentPrice: number; // Rental price (what we charge for rent)
   type: "buy" | "rent"; // "buy" for purchase, "rent" for rental
   originalQuantity: number; // Original quantity from client (for stock calculation)

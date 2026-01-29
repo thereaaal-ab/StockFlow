@@ -113,6 +113,8 @@ export function HardwareTable({
                         "total_value" in item
                           ? (item as Product).total_value
                           : (item as HardwareItem).totalValue,
+                      category: "category" in item ? (item as Product).category : "Other",
+                      category_id: "category_id" in item ? (item as Product).category_id : undefined,
                     };
 
               const buyPrice =
