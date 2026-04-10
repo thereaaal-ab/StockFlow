@@ -2,6 +2,15 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { User, Session } from "@supabase/supabase-js";
 
+function getOAuthRedirectUrl(): string {
+  const configuredUrl = import.meta.env.VITE_APP_URL?.trim();
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -33,8 +42,7 @@ export function useAuth() {
   }, []);
 
   const signInWithGoogle = async () => {
-    // Get the current origin (works in both dev and production)
-    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    const redirectTo = getOAuthRedirectUrl();
     
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useCategories } from "@/hooks/useCategories";
+import { useClients } from "@/hooks/useClients";
 import { useCommissions } from "@/hooks/useCommissions";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -35,8 +36,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { formatCurrencyFull } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RecurringCostsTab } from "@/components/settings/RecurringCostsTab";
 
 export default function Settings() {
+  const { clients } = useClients();
+  const baseMonthlyProfit = useMemo(
+    () => clients.reduce((sum, c) => sum + (c.monthly_fee || 0), 0),
+    [clients],
+  );
+
   const { categories, isLoading, createCategory, updateCategory, deleteCategory, isCreating, isUpdating, isDeleting } = useCategories();
   const { commissions, isLoading: commissionsLoading, createCommission, updateCommission, deleteCommission, isCreating: isCreatingCommission, isUpdating: isUpdatingCommission, isDeleting: isDeletingCommission } = useCommissions();
   const { toast } = useToast();
@@ -323,10 +332,18 @@ export default function Settings() {
           Paramètres
         </h1>
         <p className="text-muted-foreground mt-1">
-          Gérez les catégories de produits
+          Catégories, commissions, et coûts récurrents (overhead financier).
         </p>
       </div>
 
+      <Tabs defaultValue="categories" className="space-y-6">
+        <TabsList className="flex flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="categories">Catégories</TabsTrigger>
+          <TabsTrigger value="commissions">Commissions</TabsTrigger>
+          <TabsTrigger value="recurring">Recurring Costs</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="categories" className="space-y-6 mt-6">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -506,7 +523,9 @@ export default function Settings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </TabsContent>
 
+        <TabsContent value="commissions" className="space-y-6 mt-6">
       {/* Commissions Section */}
       <Card>
         <CardHeader>
@@ -749,6 +768,12 @@ export default function Settings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </TabsContent>
+
+        <TabsContent value="recurring" className="space-y-6 mt-6">
+          <RecurringCostsTab baseMonthlyProfit={baseMonthlyProfit} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

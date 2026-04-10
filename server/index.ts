@@ -1,3 +1,5 @@
+// Load root `.env` before any module reads process.env (Vite loads env for the client only).
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";

@@ -1,5 +1,13 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, numeric, integer, timestamp } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  varchar,
+  numeric,
+  integer,
+  timestamp,
+  boolean,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -57,3 +65,22 @@ export const insertCategorySchema = createInsertSchema(categories).pick({
 
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;
+
+export const recurringFinancialEntries = pgTable("recurring_financial_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  /** expense | income_adjustment */
+  type: varchar("type", { length: 32 }).notNull(),
+  /** monthly | quarterly | semi_annual | yearly */
+  frequency: varchar("frequency", { length: 32 }).notNull(),
+  amount: numeric("amount", { precision: 14, scale: 4 }).notNull(),
+  description: text("description"),
+  is_active: boolean("is_active").notNull().default(true),
+  created_by: varchar("created_by"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type RecurringFinancialEntryRow =
+  typeof recurringFinancialEntries.$inferSelect;

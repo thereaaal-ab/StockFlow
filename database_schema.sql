@@ -283,6 +283,34 @@ UPDATE products
 SET category = 'Other' 
 WHERE category IS NULL OR category = '';
 
+-- ----------------------------------------------------------------------------
+-- Recurring financial overhead (recurring costs & positive adjustments)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS recurring_financial_entries (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  type VARCHAR(32) NOT NULL CHECK (type IN ('expense', 'income_adjustment')),
+  frequency VARCHAR(32) NOT NULL CHECK (frequency IN ('monthly', 'quarterly', 'semi_annual', 'yearly')),
+  amount NUMERIC(14, 4) NOT NULL CHECK (amount > 0),
+  description TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_by VARCHAR,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_recurring_financial_entries_active ON recurring_financial_entries(is_active);
+
+ALTER TABLE recurring_financial_entries ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all operations on recurring_financial_entries" ON recurring_financial_entries;
+CREATE POLICY "Allow all operations on recurring_financial_entries" ON recurring_financial_entries
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+COMMENT ON TABLE recurring_financial_entries IS 'Recurring business expenses and positive income adjustments (monthly-normalized for P&L).';
+
 -- ============================================================================
 -- END OF SCHEMA
 -- ============================================================================
