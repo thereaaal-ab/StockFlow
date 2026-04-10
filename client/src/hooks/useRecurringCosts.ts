@@ -3,71 +3,99 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import type {
-  CreateRecurringEntryBody,
-  RecurringFinancialEntry,
-  RecurringSummary,
-  UpdateRecurringEntryBody,
+import { canMutateRecurringCosts } from "@/lib/recurringCostsAccess";
+import {
+  computeSummary,
+  createRecurringEntryBodySchema,
+  mapRecurringFinancialRowFromDb,
+  type CreateRecurringEntryBody,
+  type RecurringCostsResponse,
+  type RecurringFinancialEntry,
+  type UpdateRecurringEntryBody,
 } from "@shared/recurringCosts";
 
-export interface RecurringCostsResponse {
-  entries: RecurringFinancialEntry[];
-  summary: RecurringSummary;
-  canMutate: boolean;
-}
-
-async function authHeaders(): Promise<HeadersInit> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session?.access_token) {
-    throw new Error("Session expirée. Reconnectez-vous.");
-  }
-  return { Authorization: `Bearer ${session.access_token}` };
-}
+/** Bump this if the data source changes (e.g. API → Supabase) so React Query does not reuse stale errors. */
+const RECURRING_COSTS_QUERY_KEY = ["recurring-costs", "supabase"] as const;
 
 async function fetchRecurringCosts(): Promise<RecurringCostsResponse> {
-  const res = await fetch("/api/settings/recurring-costs", {
-    headers: await authHeaders(),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      (err as { message?: string }).message || `Erreur ${res.status}`,
-    );
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from("recurring_financial_entries")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    const msg = error.message ?? "";
+    if (
+      msg.includes("does not exist") ||
+      msg.includes("schema cache") ||
+      error.code === "42P01"
+    ) {
+      throw new Error(
+        "Table « recurring_financial_entries » introuvable. Exécutez la section SQL correspondante dans database_schema.sql (éditeur SQL Supabase).",
+      );
+    }
+    throw new Error(msg);
   }
-  return res.json();
+
+  const entries = (data ?? []).map((row) =>
+    mapRecurringFinancialRowFromDb(
+      row as Parameters<typeof mapRecurringFinancialRowFromDb>[0],
+    ),
+  );
+  const summary = computeSummary(entries);
+  const canMutate = canMutateRecurringCosts(user);
+  return { entries, summary, canMutate };
 }
 
 export function useRecurringCosts() {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["recurring-costs"],
+    queryKey: RECURRING_COSTS_QUERY_KEY,
     queryFn: fetchRecurringCosts,
   });
 
   const createMutation = useMutation({
     mutationFn: async (body: CreateRecurringEntryBody) => {
-      const res = await fetch("/api/settings/recurring-costs", {
-        method: "POST",
-        headers: {
-          ...(await authHeaders()),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-          (err as { message?: string }).message || "Création impossible",
-        );
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!canMutateRecurringCosts(user)) {
+        throw new Error("Droits administrateur requis.");
       }
-      return res.json() as Promise<{ entry: RecurringFinancialEntry }>;
+      const parsed = createRecurringEntryBodySchema.parse(body);
+      const { data, error } = await supabase
+        .from("recurring_financial_entries")
+        .insert({
+          name: parsed.name.trim(),
+          category: parsed.category.trim(),
+          type: parsed.type,
+          frequency: parsed.frequency,
+          amount: parsed.amount,
+          description: parsed.description?.trim() ?? null,
+          is_active: parsed.is_active ?? true,
+          created_by: user?.id ?? null,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      return {
+        entry: mapRecurringFinancialRowFromDb(
+          data as Parameters<typeof mapRecurringFinancialRowFromDb>[0],
+        ),
+      };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recurring-costs"] });
+      queryClient.invalidateQueries({ queryKey: RECURRING_COSTS_QUERY_KEY });
     },
   });
 
@@ -79,44 +107,88 @@ export function useRecurringCosts() {
       id: string;
       body: UpdateRecurringEntryBody;
     }) => {
-      const res = await fetch(`/api/settings/recurring-costs/${id}`, {
-        method: "PUT",
-        headers: {
-          ...(await authHeaders()),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-          (err as { message?: string }).message || "Mise à jour impossible",
-        );
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!canMutateRecurringCosts(user)) {
+        throw new Error("Droits administrateur requis.");
       }
-      return res.json() as Promise<{ entry: RecurringFinancialEntry }>;
+
+      const patch: Record<string, unknown> = {};
+      if (body.name !== undefined) patch.name = body.name.trim();
+      if (body.category !== undefined) patch.category = body.category.trim();
+      if (body.type !== undefined) patch.type = body.type;
+      if (body.frequency !== undefined) patch.frequency = body.frequency;
+      if (body.amount !== undefined) patch.amount = body.amount;
+      if (body.description !== undefined) {
+        patch.description = body.description?.trim() || null;
+      }
+      if (body.is_active !== undefined) patch.is_active = body.is_active;
+      patch.updated_at = new Date().toISOString();
+
+      const { data, error } = await supabase
+        .from("recurring_financial_entries")
+        .update(patch)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      return {
+        entry: mapRecurringFinancialRowFromDb(
+          data as Parameters<typeof mapRecurringFinancialRowFromDb>[0],
+        ),
+      };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recurring-costs"] });
+      queryClient.invalidateQueries({ queryKey: RECURRING_COSTS_QUERY_KEY });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/settings/recurring-costs/${id}`, {
-        method: "DELETE",
-        headers: await authHeaders(),
-      });
-      if (!res.ok && res.status !== 204) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-          (err as { message?: string }).message || "Suppression impossible",
-        );
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!canMutateRecurringCosts(user)) {
+        throw new Error("Droits administrateur requis.");
+      }
+      const { error } = await supabase
+        .from("recurring_financial_entries")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        throw new Error(error.message);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recurring-costs"] });
+      queryClient.invalidateQueries({ queryKey: RECURRING_COSTS_QUERY_KEY });
     },
   });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("recurring-financial-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "recurring_financial_entries",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: RECURRING_COSTS_QUERY_KEY });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   return {
     ...query,

@@ -4,9 +4,9 @@ import {
   getMonthlyEquivalent,
   RECURRING_COST_DEFAULT_CATEGORIES,
   createRecurringEntryBodySchema,
+  type RecurringEntryType,
   type RecurringFinancialEntry,
   type RecurringFrequency,
-  type RecurringEntryType,
 } from "@shared/recurringCosts";
 import { useRecurringCosts } from "@/hooks/useRecurringCosts";
 import { useToast } from "@/hooks/use-toast";
@@ -358,8 +358,18 @@ export function RecurringCostsTab({ baseMonthlyProfit }: RecurringCostsTabProps)
           {isError && (
             <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
               {error instanceof Error ? error.message : "Impossible de charger les données."}
+              {error instanceof Error &&
+                /unexpected token|DOCTYPE/i.test(error.message) && (
+                  <p className="text-xs mt-3 font-medium text-amber-900 dark:text-amber-100">
+                    Cette erreur vient souvent d’une <strong>ancienne version</strong> du site qui appelait encore
+                    l’API Node. Déployez le dernier commit, puis faites un rechargement forcé (Cmd+Shift+R) ou videz le
+                    cache du navigateur.
+                  </p>
+                )}
               <p className="text-xs mt-2 text-muted-foreground">
-                Vérifiez que la table existe (SQL) et que le serveur API est disponible (ex. npm run dev).
+                Sinon : table Supabase <code className="rounded bg-muted px-1">recurring_financial_entries</code>,{" "}
+                variables <code className="rounded bg-muted px-1">VITE_SUPABASE_*</code>, et pour les boutons admin{" "}
+                <code className="rounded bg-muted px-1">VITE_ADMIN_EMAILS</code> (ou rôle admin dans Supabase Auth).
               </p>
             </div>
           )}
@@ -394,7 +404,7 @@ export function RecurringCostsTab({ baseMonthlyProfit }: RecurringCostsTabProps)
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {entries.map((row) => {
+                  {entries.map((row: RecurringFinancialEntry) => {
                     const monthly = getMonthlyEquivalent(row.amount, row.frequency);
                     return (
                       <TableRow
@@ -463,8 +473,9 @@ export function RecurringCostsTab({ baseMonthlyProfit }: RecurringCostsTabProps)
 
           {!canMutate && !isLoading && (
             <p className="text-xs text-muted-foreground mt-4">
-              Seuls les administrateurs peuvent modifier les entrées (variable d'environnement{" "}
-              <code className="rounded bg-muted px-1">ADMIN_EMAILS</code> ou rôle admin Supabase).
+              Seuls les administrateurs peuvent modifier les entrées (
+              <code className="rounded bg-muted px-1">VITE_ADMIN_EMAILS</code> ou rôle{" "}
+              <code className="rounded bg-muted px-1">admin</code> dans Supabase Auth).
             </p>
           )}
         </CardContent>

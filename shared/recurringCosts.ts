@@ -66,6 +66,13 @@ export interface RecurringSummary {
   profitAfterOverhead?: number;
 }
 
+/** Response shape for recurring-costs UI (Supabase or legacy API). */
+export interface RecurringCostsResponse {
+  entries: RecurringFinancialEntry[];
+  summary: RecurringSummary;
+  canMutate: boolean;
+}
+
 const FREQUENCY_DIVISORS: Record<RecurringFrequency, number> = {
   monthly: 1,
   quarterly: 3,
@@ -169,3 +176,40 @@ export type CreateRecurringEntryBody = z.infer<
 export type UpdateRecurringEntryBody = z.infer<
   typeof updateRecurringEntryBodySchema
 >;
+
+/** Map a Supabase/Postgres row to `RecurringFinancialEntry` (shared by client and server). */
+export function mapRecurringFinancialRowFromDb(row: {
+  id: string;
+  name: string;
+  category: string;
+  type: string;
+  frequency: string;
+  amount: unknown;
+  description: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string | Date;
+  updated_at: string | Date;
+}): RecurringFinancialEntry {
+  const amount =
+    typeof row.amount === "string"
+      ? parseFloat(row.amount)
+      : Number(row.amount);
+
+  const toIso = (v: string | Date) =>
+    typeof v === "string" ? v : v.toISOString();
+
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    type: recurringEntryTypeSchema.parse(row.type),
+    frequency: recurringFrequencySchema.parse(row.frequency),
+    amount,
+    description: row.description ?? null,
+    is_active: row.is_active,
+    created_by: row.created_by ?? null,
+    created_at: toIso(row.created_at),
+    updated_at: toIso(row.updated_at),
+  };
+}
