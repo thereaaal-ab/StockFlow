@@ -25,6 +25,7 @@ export const recurringFrequencySchema = z.enum([
   "quarterly",
   "semi_annual",
   "yearly",
+  "one_shot",
 ]);
 
 export type RecurringFrequency = z.infer<typeof recurringFrequencySchema>;
@@ -78,6 +79,8 @@ const FREQUENCY_DIVISORS: Record<RecurringFrequency, number> = {
   quarterly: 3,
   semi_annual: 6,
   yearly: 12,
+  // One-shot values are counted once in the current period and never spread.
+  one_shot: 1,
 };
 
 /**

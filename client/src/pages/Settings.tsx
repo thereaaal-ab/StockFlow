@@ -47,7 +47,11 @@ export default function Settings() {
   );
 
   const { categories, isLoading, createCategory, updateCategory, deleteCategory, isCreating, isUpdating, isDeleting } = useCategories();
-  const { commissions, isLoading: commissionsLoading, createCommission, updateCommission, deleteCommission, isCreating: isCreatingCommission, isUpdating: isUpdatingCommission, isDeleting: isDeletingCommission } = useCommissions();
+  const { commissions, totalCommissions, isLoading: commissionsLoading, createCommission, updateCommission, deleteCommission, isCreating: isCreatingCommission, isUpdating: isUpdatingCommission, isDeleting: isDeletingCommission } = useCommissions();
+  const basePositiveAdjustments = useMemo(
+    () => baseMonthlyProfit + totalCommissions,
+    [baseMonthlyProfit, totalCommissions],
+  );
   const { toast } = useToast();
   const [editingCategory, setEditingCategory] = useState<{ id: string; name: string } | null>(null);
   const [deleteCategoryId, setDeleteCategoryId] = useState<string | null>(null);
@@ -328,7 +332,7 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold" data-testid="text-page-title">
+        <h1 className="page-heading" data-testid="text-page-title">
           Paramètres
         </h1>
         <p className="text-muted-foreground mt-1">
@@ -771,7 +775,10 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="recurring" className="space-y-6 mt-6">
-          <RecurringCostsTab baseMonthlyProfit={baseMonthlyProfit} />
+          <RecurringCostsTab
+            baseMonthlyProfit={baseMonthlyProfit}
+            basePositiveAdjustments={basePositiveAdjustments}
+          />
         </TabsContent>
       </Tabs>
     </div>

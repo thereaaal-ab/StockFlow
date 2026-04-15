@@ -78,6 +78,7 @@ const FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
   quarterly: "Trimestriel",
   semi_annual: "Semestriel",
   yearly: "Annuel",
+  one_shot: "One shot",
 };
 
 const TYPE_LABELS: Record<RecurringEntryType, string> = {
@@ -88,6 +89,8 @@ const TYPE_LABELS: Record<RecurringEntryType, string> = {
 interface RecurringCostsTabProps {
   /** Optional monthly base (e.g. sum of client monthly fees) for “profit after overhead”. */
   baseMonthlyProfit?: number;
+  /** Optional positive baseline (client profits + commissions) shown in positive adjustments card. */
+  basePositiveAdjustments?: number;
 }
 
 function emptyForm(): {
@@ -112,7 +115,10 @@ function emptyForm(): {
   };
 }
 
-export function RecurringCostsTab({ baseMonthlyProfit }: RecurringCostsTabProps) {
+export function RecurringCostsTab({
+  baseMonthlyProfit,
+  basePositiveAdjustments = 0,
+}: RecurringCostsTabProps) {
   const { toast } = useToast();
   const {
     entries,
@@ -133,10 +139,19 @@ export function RecurringCostsTab({ baseMonthlyProfit }: RecurringCostsTabProps)
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
 
-  const displaySummary = useMemo(
-    () => computeSummary(entries, baseMonthlyProfit),
-    [entries, baseMonthlyProfit],
-  );
+  const displaySummary = useMemo(() => {
+    const base = computeSummary(entries, baseMonthlyProfit);
+    const combinedPositive = base.totalMonthlyPositiveAdjustments + basePositiveAdjustments;
+    return {
+      ...base,
+      totalMonthlyPositiveAdjustments: combinedPositive,
+      netMonthlyOverhead: combinedPositive - base.totalMonthlyExpenses,
+      profitAfterOverhead:
+        baseMonthlyProfit !== undefined && Number.isFinite(baseMonthlyProfit)
+          ? baseMonthlyProfit + (combinedPositive - base.totalMonthlyExpenses)
+          : undefined,
+    };
+  }, [entries, baseMonthlyProfit, basePositiveAdjustments]);
 
   const resolvedCategory = () => {
     if (form.categorySelect === CUSTOM_CATEGORY) {
@@ -277,6 +292,9 @@ export function RecurringCostsTab({ baseMonthlyProfit }: RecurringCostsTabProps)
           <CardContent>
             <p className="text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
               {formatCurrencyFull(displaySummary.totalMonthlyPositiveAdjustments)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Profits clients + commissions + ajustements manuels
             </p>
           </CardContent>
         </Card>
@@ -486,7 +504,7 @@ export function RecurringCostsTab({ baseMonthlyProfit }: RecurringCostsTabProps)
           <DialogHeader>
             <DialogTitle>{editing ? "Modifier l'entrée" : "Nouvelle entrée"}</DialogTitle>
             <DialogDescription>
-              Montant toujours positif ; le type indique s'il est retranché (dépense) ou ajouté (ajustement).
+              Montant toujours positif ; le type indique s'il est retranché (dépense) ou ajouté (ajustement). "One shot" applique l'entrée une seule fois.
             </DialogDescription>
           </DialogHeader>
 

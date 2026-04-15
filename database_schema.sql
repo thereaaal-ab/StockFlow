@@ -291,7 +291,7 @@ CREATE TABLE IF NOT EXISTS recurring_financial_entries (
   name TEXT NOT NULL,
   category TEXT NOT NULL,
   type VARCHAR(32) NOT NULL CHECK (type IN ('expense', 'income_adjustment')),
-  frequency VARCHAR(32) NOT NULL CHECK (frequency IN ('monthly', 'quarterly', 'semi_annual', 'yearly')),
+  frequency VARCHAR(32) NOT NULL CHECK (frequency IN ('monthly', 'quarterly', 'semi_annual', 'yearly', 'one_shot')),
   amount NUMERIC(14, 4) NOT NULL CHECK (amount > 0),
   description TEXT,
   is_active BOOLEAN NOT NULL DEFAULT true,
@@ -299,6 +299,23 @@ CREATE TABLE IF NOT EXISTS recurring_financial_entries (
   created_at TIMESTAMP DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
+
+-- Ensure existing databases also allow one-shot entries.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'recurring_financial_entries_frequency_check'
+  ) THEN
+    ALTER TABLE recurring_financial_entries
+      DROP CONSTRAINT recurring_financial_entries_frequency_check;
+  END IF;
+
+  ALTER TABLE recurring_financial_entries
+    ADD CONSTRAINT recurring_financial_entries_frequency_check
+    CHECK (frequency IN ('monthly', 'quarterly', 'semi_annual', 'yearly', 'one_shot'));
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_recurring_financial_entries_active ON recurring_financial_entries(is_active);
 

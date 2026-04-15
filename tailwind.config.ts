@@ -75,9 +75,15 @@ export default {
           border: "var(--sidebar-accent-border)"
         },
         status: {
-          success: "hsl(142 76% 36%)",
-          warning: "hsl(24 95% 53%)",
+          success: "hsl(142 71% 45%)",
+          warning: "hsl(38 92% 50%)",
           error: "hsl(0 84% 60%)",
+        },
+        enterprise: {
+          base: "var(--bg-base)",
+          surface: "var(--bg-surface)",
+          elevated: "var(--bg-elevated)",
+          hover: "var(--bg-hover)",
         },
       },
       fontFamily: {

@@ -2,7 +2,7 @@ import { InventoryChart } from "@/components/InventoryChart";
 import { StatCard } from "@/components/StatCard";
 import { TrendingUp, Package, Users, Euro } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import {
   Select,
   SelectContent,
@@ -26,13 +26,40 @@ import { useMemo, useState } from "react";
 import { formatCurrencyCompact, formatCurrencyFull } from "@/lib/utils";
 import { diffInMonths, calculateClientMetrics } from "@/lib/clientCalculations";
 
-const CHART_COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-];
+const CHART_COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ec4899", "#06b6d4"];
+
+function capitalizeCategoryDisplay(value: string): string {
+  const s = value.trim();
+  if (!s) return value;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Shortens "Kiosk …" labels on charts: multiple words after Kiosk → "Kiosk AB"; single word stays full (e.g. Kiosk Compacts). */
+function abbreviateKioskCategoryForChart(categoryName: string): string {
+  const trimmed = categoryName.trim();
+  const match = trimmed.match(/^kiosk\s+(.+)$/i);
+  if (!match) return capitalizeCategoryDisplay(trimmed);
+  const rest = match[1].trim();
+  if (!rest) return capitalizeCategoryDisplay(trimmed);
+
+  const words: string[] = [];
+  for (const segment of rest.split(/\s+/).filter(Boolean)) {
+    if (segment.includes("-")) {
+      segment.split("-").filter(Boolean).forEach((part) => words.push(part));
+    } else {
+      words.push(segment);
+    }
+  }
+
+  if (words.length <= 1) return capitalizeCategoryDisplay(trimmed);
+  const initials = words
+    .map((w) => {
+      const c = w.charAt(0);
+      return c ? c.toUpperCase() : "";
+    })
+    .join("");
+  return capitalizeCategoryDisplay(`Kiosk ${initials}`);
+}
 
 export default function Analytics() {
   const { counts, isLoading: countsLoading } = useDashboardCounts();
@@ -176,15 +203,17 @@ export default function Analytics() {
     return Array.from(categoryCounts.entries())
       .map(([name, count], index) => {
         const percentage = (count / totalProducts) * 100;
+        const displayName = abbreviateKioskCategoryForChart(name);
         return {
-          name: `${name} (${percentage.toFixed(1)}%)`,
+          name: `${displayName} (${percentage.toFixed(1)}%)`,
+          fullCategory: name,
           value: count,
           percentage: percentage,
           fill: CHART_COLORS[index % CHART_COLORS.length],
         };
       })
       .sort((a, b) => b.value - a.value); // Sort by count descending
-  }, [products]);
+  }, [products, categoryMap]);
 
   // Revenue by category chart data
   const revenueByCategory = useMemo(() => {
@@ -254,7 +283,7 @@ export default function Analytics() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-semibold" data-testid="text-page-title">
+          <h1 className="page-heading" data-testid="text-page-title">
             Analytics
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -278,47 +307,63 @@ export default function Analytics() {
         </Select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Taux d'utilisation"
           value={countsLoading ? "..." : counts.productCount > 0 
             ? `${Math.round((counts.availableStockCount / counts.productCount) * 100)}%`
             : "0%"}
           icon={TrendingUp}
+          accent="indigo"
           testId="card-usage-rate"
         />
         <StatCard
           title="Matériel déployé"
           value={countsLoading ? "..." : counts.availableStockCount.toString()}
           icon={Package}
+          accent="emerald"
+          animatedNumber={countsLoading ? undefined : counts.availableStockCount}
+          formatAnimated={(n) => Math.round(n).toString()}
           testId="card-deployed"
         />
         <StatCard
           title="Clients actifs"
           value={countsLoading ? "..." : counts.clientCount.toString()}
           icon={Users}
+          accent="cyan"
+          animatedNumber={countsLoading ? undefined : counts.clientCount}
+          formatAnimated={(n) => Math.round(n).toString()}
           testId="card-clients"
         />
         <StatCard
           title="Valeur déployée"
           value={countsLoading ? "..." : formatCurrencyCompact(counts.totalValue)}
           icon={Euro}
+          accent="amber"
+          animatedNumber={countsLoading ? undefined : counts.totalValue}
+          formatAnimated={formatCurrencyCompact}
           testId="card-deployed-value"
         />
       </div>
 
       {/* Revenue Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <StatCard
           title="Revenu Mensuel Total"
           value={clientsLoading ? "..." : formatCurrencyCompact(totalRevenue.totalMonthlyRevenue)}
           icon={Euro}
+          accent="indigo"
+          animatedNumber={clientsLoading ? undefined : totalRevenue.totalMonthlyRevenue}
+          formatAnimated={formatCurrencyCompact}
           testId="card-total-monthly-revenue"
         />
         <StatCard
           title="Revenu Annuel Total"
           value={clientsLoading ? "..." : formatCurrencyCompact(totalRevenue.totalYearlyRevenue)}
           icon={Euro}
+          accent="rose"
+          animatedNumber={clientsLoading ? undefined : totalRevenue.totalYearlyRevenue}
+          formatAnimated={formatCurrencyCompact}
           testId="card-total-yearly-revenue"
         />
       </div>
@@ -332,7 +377,7 @@ export default function Analytics() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Distribution du Matériel par Catégorie (%)</CardTitle>
+            <CardTitle className="text-sm font-semibold sm:text-base">Distribution du Matériel par Catégorie (%)</CardTitle>
           </CardHeader>
           <CardContent>
             {hardwareDistribution.length === 0 ? (
@@ -340,7 +385,7 @@ export default function Analytics() {
                 Aucune donnée disponible
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={340}>
                 <PieChart>
                   <Pie
                     data={hardwareDistribution}
@@ -361,7 +406,9 @@ export default function Analytics() {
                   </Pie>
                   <Tooltip
                     formatter={(value: number, name: string, props: any) => {
-                      const categoryName = props.payload.name.split(' (')[0];
+                      const raw =
+                        props.payload.fullCategory ?? props.payload.name.split(" (")[0];
+                      const categoryName = capitalizeCategoryDisplay(raw);
                       return [`${categoryName}: ${value} produits (${props.payload.percentage.toFixed(1)}%)`, "Nombre"];
                     }}
                     contentStyle={{
@@ -370,7 +417,6 @@ export default function Analytics() {
                       borderRadius: "var(--radius)",
                     }}
                   />
-                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -379,7 +425,7 @@ export default function Analytics() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Revenus par Catégorie</CardTitle>
+            <CardTitle className="text-sm font-semibold sm:text-base">Revenus par Catégorie</CardTitle>
           </CardHeader>
           <CardContent>
             {revenueByCategory.length === 0 ? (
@@ -421,7 +467,7 @@ export default function Analytics() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Statistiques par Catégorie</CardTitle>
+            <CardTitle className="text-sm font-semibold sm:text-base">Statistiques par Catégorie</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {categoryStats
@@ -456,7 +502,7 @@ export default function Analytics() {
         {/* Client Revenue Table */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Revenus par Client</CardTitle>
+            <CardTitle className="text-sm font-semibold sm:text-base">Revenus par Client</CardTitle>
           </CardHeader>
           <CardContent>
             {clientsLoading ? (
@@ -510,7 +556,7 @@ export default function Analytics() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Indicateurs Clés</CardTitle>
+            <CardTitle className="text-sm font-semibold sm:text-base">Indicateurs Clés</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">

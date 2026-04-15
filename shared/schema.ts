@@ -72,7 +72,7 @@ export const recurringFinancialEntries = pgTable("recurring_financial_entries", 
   category: text("category").notNull(),
   /** expense | income_adjustment */
   type: varchar("type", { length: 32 }).notNull(),
-  /** monthly | quarterly | semi_annual | yearly */
+  /** monthly | quarterly | semi_annual | yearly | one_shot */
   frequency: varchar("frequency", { length: 32 }).notNull(),
   amount: numeric("amount", { precision: 14, scale: 4 }).notNull(),
   description: text("description"),

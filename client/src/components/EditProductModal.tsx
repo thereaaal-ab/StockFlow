@@ -18,20 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCategories } from "@/hooks/useCategories";
-
-interface Product {
-  id: string;
-  code: string;
-  name: string;
-  quantity: number;
-  hardware_total?: number;
-  stock_actuel?: number;
-  purchase_price: number | string;
-  selling_price: number | string;
-  category?: string;
-  profit?: number | string;
-  total_value?: number | string;
-}
+import type { Product } from "@/hooks/useProducts";
 
 interface EditProductModalProps {
   open: boolean;

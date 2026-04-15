@@ -18,11 +18,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  SidebarHeader,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const menuItems = [
   {
@@ -74,7 +76,6 @@ export function AppSidebar() {
     }
   };
 
-  // Get user initials from name or email
   const getUserInitials = () => {
     if (user?.user_metadata?.full_name) {
       const names = user.user_metadata.full_name.split(" ");
@@ -89,45 +90,61 @@ export function AppSidebar() {
     return "U";
   };
 
-  // Get user display name
   const getUserName = () => {
     return user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Utilisateur";
   };
 
-  // Get user email
   const getUserEmail = () => {
     return user?.email || "Aucun email";
   };
 
-  // Get user avatar URL
   const getUserAvatar = () => {
     return user?.user_metadata?.avatar_url || user?.user_metadata?.picture || undefined;
   };
 
   return (
-    <Sidebar>
-      <SidebarContent>
-        <div className="p-4">
-          <h2 className="text-lg font-semibold text-sidebar-foreground">
-            Inventaire Pro
-          </h2>
+    <Sidebar collapsible="icon" className="border-0">
+      <SidebarHeader className="border-0 px-3 pb-2 pt-4">
+        <div className="flex items-center gap-2.5 px-1">
+          <div
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-xs font-bold text-primary ring-1 ring-primary/25"
+            aria-hidden
+          >
+            IP
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
+            <span className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
+              Inventaire Pro
+            </span>
+            <span className="truncate text-[11px] text-muted-foreground">
+              Gestion matériel
+            </span>
+          </div>
         </div>
+      </SidebarHeader>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+      <SidebarContent className="gap-0 border-0 px-2">
+        <SidebarGroup className="py-0">
+          <SidebarGroupLabel className="mb-1 px-2 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            Navigation
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5">
               {menuItems.map((item) => {
                 const isActive = location === item.url;
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       asChild
-                      className={isActive ? "bg-sidebar-accent" : ""}
+                      isActive={isActive}
+                      tooltip={item.title}
+                      className={cn(
+                        isActive && "text-primary [&>svg]:text-primary"
+                      )}
                       data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
                     >
                       <Link href={item.url}>
-                        <item.icon className="w-4 h-4" />
+                        <item.icon className="size-4 shrink-0" />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -138,13 +155,21 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
+        <SidebarGroup className="py-2">
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild data-testid="link-settings">
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/settings"}
+                  tooltip="Paramètres"
+                  className={cn(
+                    location === "/settings" && "text-primary [&>svg]:text-primary"
+                  )}
+                  data-testid="link-settings"
+                >
                   <Link href="/settings">
-                    <Settings className="w-4 h-4" />
+                    <Settings className="size-4 shrink-0" />
                     <span>Paramètres</span>
                   </Link>
                 </SidebarMenuButton>
@@ -154,35 +179,41 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
-        <div className="p-4 space-y-4">
-          <div className="flex items-center gap-3">
-            <Avatar>
+      <SidebarFooter className="mt-auto border-t border-sidebar-border p-3">
+        <div className="flex items-center gap-3 rounded-xl bg-sidebar-accent/40 p-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:p-1">
+          <div
+            className="rounded-full p-[2px]"
+            style={{
+              background:
+                "linear-gradient(135deg, hsl(239 84% 67%), hsl(188 94% 43%))",
+            }}
+          >
+            <Avatar className="size-9 border-2 border-sidebar bg-sidebar">
               <AvatarImage src={getUserAvatar()} alt={getUserName()} />
-              <AvatarFallback className="bg-primary text-primary-foreground">
+              <AvatarFallback className="bg-sidebar text-sm font-semibold text-sidebar-foreground">
                 {getUserInitials()}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">
-                {getUserName()}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {getUserEmail()}
-              </p>
-            </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2"
-            onClick={handleLogout}
-            data-testid="button-logout"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Déconnexion</span>
-          </Button>
+          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+            <p className="truncate text-sm font-medium text-[color:var(--enterprise-text-primary,hsl(var(--sidebar-foreground)))]">
+              {getUserName()}
+            </p>
+            <p className="truncate text-xs text-[color:var(--enterprise-text-muted,hsl(var(--muted-foreground)))]">
+              {getUserEmail()}
+            </p>
+          </div>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-2 w-full justify-start gap-2 text-muted-foreground transition-colors duration-150 hover:text-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+          onClick={handleLogout}
+          data-testid="button-logout"
+        >
+          <LogOut className="size-4 shrink-0" />
+          <span className="group-data-[collapsible=icon]:sr-only">Déconnexion</span>
+        </Button>
       </SidebarFooter>
     </Sidebar>
   );

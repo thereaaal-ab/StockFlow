@@ -66,7 +66,7 @@ export default function Stock() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-semibold" data-testid="text-page-title">
+          <h1 className="page-heading" data-testid="text-page-title">
             Stock Actuel
           </h1>
           <p className="text-muted-foreground mt-1">

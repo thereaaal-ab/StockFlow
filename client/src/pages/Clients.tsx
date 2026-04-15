@@ -1,3 +1,4 @@
+import { Users } from "lucide-react";
 import { ClientCard } from "@/components/ClientCard";
 import { AddClientModal } from "@/components/AddClientModal";
 import { BulkImportClientsDialog } from "@/components/BulkImportClientsDialog";
@@ -45,7 +46,7 @@ export default function Clients() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-semibold" data-testid="text-page-title">
+          <h1 className="page-heading" data-testid="text-page-title">
             Clients
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -63,12 +64,18 @@ export default function Clients() {
           Chargement des clients...
         </div>
       ) : clients.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          Aucun client enregistré
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/40 py-16 text-center">
+          <div className="mb-3 flex size-14 items-center justify-center rounded-full border border-border bg-muted/30 text-muted-foreground">
+            <Users className="size-7" aria-hidden />
+          </div>
+          <p className="text-sm font-medium text-foreground">Aucun client enregistré</p>
+          <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+            Ajoutez un client ou importez une liste pour suivre contrats, matériel et rentabilité.
+          </p>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {clients.map((client) => (
               <ClientCard
                 key={client.id}

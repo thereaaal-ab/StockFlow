@@ -76,9 +76,9 @@
   --chart-4: 24 95% 53%;
   --chart-5: 339 90% 51%;
 
-  --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: "SF Mono", Monaco, Menlo, monospace;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Monaco, Menlo, monospace;
   --radius: .5rem; /* 8px */
   --shadow-2xs: 0px 1px 2px 0px hsl(220 13% 13% / 0.05);
   --shadow-xs: 0px 1px 2px 0px hsl(220 13% 13% / 0.06);
@@ -123,76 +123,77 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  /* Enterprise palette (refined dark SaaS) */
+  --bg-base: #0a0a0b;
+  --bg-surface: #111113;
+  --bg-elevated: #18181b;
+  --bg-hover: #1f1f23;
+  --enterprise-border: #27272a;
+  --enterprise-border-strong: #3f3f46;
+  --enterprise-accent: #6366f1;
+  --enterprise-accent-hover: #4f46e5;
+  --enterprise-success: #22c55e;
+  --enterprise-warning: #f59e0b;
+  --enterprise-danger: #ef4444;
+  --enterprise-text-primary: #fafafa;
+  --enterprise-text-secondary: #a1a1aa;
+  --enterprise-text-muted: #52525b;
 
-  --opaque-button-border-intensity: 9;  /* In terms of percentages */
+  --button-outline: rgba(255, 255, 255, 0.1);
+  --badge-outline: rgba(255, 255, 255, 0.05);
 
-  /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --opaque-button-border-intensity: 9;
 
-  --background: 220 13% 9%;
+  --elevate-1: rgba(255, 255, 255, 0.04);
+  --elevate-2: rgba(255, 255, 255, 0.09);
 
-  --foreground: 220 5% 92%;
+  --background: 240 7% 4%;
+  --foreground: 0 0% 98%;
 
-  --border: 220 13% 18%;
+  --border: 240 5% 16%;
+  --input: 240 5% 20%;
 
-  --card: 220 10% 11%;
+  --card: 240 5% 10%;
+  --card-foreground: 0 0% 98%;
+  --card-border: 240 5% 16%;
 
-  --card-foreground: 220 5% 92%;
+  --sidebar: 240 5% 7%;
+  --sidebar-foreground: 0 0% 98%;
+  --sidebar-border: 240 5% 16%;
 
-  --card-border: 220 13% 15%;
+  --sidebar-primary: 239 84% 67%;
+  --sidebar-primary-foreground: 0 0% 98%;
 
-  --sidebar: 220 12% 13%;
+  --sidebar-accent: 240 4% 14%;
+  --sidebar-accent-foreground: 0 0% 98%;
 
-  --sidebar-foreground: 220 5% 92%;
+  --sidebar-ring: 239 84% 67%;
 
-  --sidebar-border: 220 13% 18%;
+  --popover: 240 5% 10%;
+  --popover-foreground: 0 0% 98%;
+  --popover-border: 240 5% 16%;
 
-  --sidebar-primary: 217 91% 60%;
-
-  --sidebar-primary-foreground: 220 13% 9%;
-
-  --sidebar-accent: 220 10% 18%;
-
-  --sidebar-accent-foreground: 220 5% 90%;
-
-  --sidebar-ring: 217 91% 60%;
-
-  --popover: 220 12% 15%;
-
-  --popover-foreground: 220 5% 92%;
-
-  --popover-border: 220 13% 20%;
-
-  --primary: 217 91% 60%;
-
+  --primary: 239 84% 67%;
   --primary-foreground: 0 0% 98%;
 
-  --secondary: 220 10% 20%;
+  --secondary: 240 5% 12%;
+  --secondary-foreground: 240 5% 65%;
 
-  --secondary-foreground: 220 5% 90%;
+  --muted: 240 4% 14%;
+  --muted-foreground: 240 4% 46%;
 
-  --muted: 220 12% 17%;
-
-  --muted-foreground: 220 8% 65%;
-
-  --accent: 220 15% 18%;
-
-  --accent-foreground: 220 5% 90%;
+  --accent: 240 5% 14%;
+  --accent-foreground: 0 0% 98%;
 
   --destructive: 0 84% 60%;
-
   --destructive-foreground: 0 0% 98%;
 
-  --input: 220 13% 35%;
-  --ring: 217 91% 60%;
-  --chart-1: 217 91% 70%;
-  --chart-2: 271 81% 75%;
-  --chart-3: 142 76% 65%;
-  --chart-4: 24 95% 68%;
-  --chart-5: 339 90% 70%;
+  --ring: 239 84% 67%;
+  --chart-1: 239 84% 67%;
+  --chart-2: 142 71% 45%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 330 81% 60%;
+  --chart-5: 188 94% 43%;
 
   --shadow-2xs: 0px 1px 2px 0px hsl(220 13% 3% / 0.3);
   --shadow-xs: 0px 1px 2px 0px hsl(220 13% 3% / 0.4);
@@ -246,8 +247,16 @@
     @apply border-border;
   }
 
+  html {
+    font-size: 84%;
+  }
+
   body {
     @apply font-sans antialiased bg-background text-foreground;
+  }
+
+  .dark body {
+    background-color: var(--bg-base);
   }
 }
 
@@ -399,5 +408,54 @@
   .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
+  }
+
+  .page-heading {
+    @apply text-xl font-bold tracking-[-0.03em] text-foreground sm:text-2xl;
+  }
+
+  .code-pill {
+    @apply inline-flex max-w-full items-center truncate rounded-md border px-2 py-0.5 font-mono text-xs font-medium tabular-nums text-foreground transition-colors;
+    border-color: var(--enterprise-border, hsl(var(--border)));
+    background-color: var(--bg-hover, hsl(var(--muted)));
+  }
+
+  .dark .code-pill {
+    border-color: var(--enterprise-border);
+    background-color: var(--bg-hover);
+  }
+
+  @keyframes page-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-page-enter {
+    animation: page-enter 0.2s ease forwards;
+  }
+
+  @keyframes table-row-enter {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-table-row {
+    animation: table-row-enter 0.4s ease both;
+  }
+
+  .table-head-enterprise {
+    @apply h-12 px-4 text-left align-middle text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground;
   }
 }
