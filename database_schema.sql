@@ -328,6 +328,59 @@ CREATE POLICY "Allow all operations on recurring_financial_entries" ON recurring
 
 COMMENT ON TABLE recurring_financial_entries IS 'Recurring business expenses and positive income adjustments (monthly-normalized for P&L).';
 
+-- ----------------------------------------------------------------------------
+-- Lightweight CRM + Current Orders
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS crm_clients (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  company TEXT,
+  email TEXT,
+  phone TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'prospect'
+    CHECK (status IN ('prospect', 'offre', 'negociation', 'valide', 'refuse')),
+  needs TEXT NOT NULL,
+  estimated_value NUMERIC(12, 2),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  item TEXT NOT NULL,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  status VARCHAR(20) NOT NULL DEFAULT 'a_commander'
+    CHECK (status IN ('a_commander', 'commande', 'recu', 'annule')),
+  priority VARCHAR(20) NOT NULL DEFAULT 'normale'
+    CHECK (priority IN ('basse', 'normale', 'urgente')),
+  requested_by TEXT,
+  supplier TEXT,
+  linked_client_id VARCHAR REFERENCES crm_clients(id) ON DELETE SET NULL,
+  due_date DATE,
+  notes TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_crm_clients_status ON crm_clients(status);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_linked_client_id ON orders(linked_client_id);
+
+ALTER TABLE crm_clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow all operations on crm_clients" ON crm_clients;
+CREATE POLICY "Allow all operations on crm_clients" ON crm_clients
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all operations on orders" ON orders;
+CREATE POLICY "Allow all operations on orders" ON orders
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
 -- ============================================================================
 -- END OF SCHEMA
 -- ============================================================================

@@ -3,6 +3,8 @@ import {
   Package,
   Warehouse,
   Users,
+  BriefcaseBusiness,
+  ShoppingCart,
   BarChart3,
   Settings,
   LogOut,
@@ -46,6 +48,16 @@ const menuItems = [
     title: "Clients",
     url: "/clients",
     icon: Users,
+  },
+  {
+    title: "CRM Pipeline",
+    url: "/crm-pipeline",
+    icon: BriefcaseBusiness,
+  },
+  {
+    title: "Commandes",
+    url: "/orders",
+    icon: ShoppingCart,
   },
   {
     title: "Analytics",
