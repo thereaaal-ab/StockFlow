@@ -17,6 +17,7 @@ export type CurrentOrder = {
   id: string;
   item: string;
   quantity: number;
+  totalPrice?: number;
   status: OrderStatus;
   priority: OrderPriority;
   requestedBy?: string;
@@ -36,6 +37,9 @@ function mapRow(row: Record<string, any>): CurrentOrder {
     id: row.id,
     item: row.item,
     quantity: Number(row.quantity),
+    totalPrice: row.total_price !== null && row.total_price !== undefined
+      ? Number(row.total_price)
+      : undefined,
     status: row.status as OrderStatus,
     priority: row.priority as OrderPriority,
     requestedBy: row.requested_by ?? undefined,
@@ -66,6 +70,7 @@ async function createOrder(payload: OrderPayload): Promise<CurrentOrder> {
     .insert({
       item: payload.item,
       quantity: payload.quantity,
+      total_price: payload.totalPrice ?? null,
       status: payload.status,
       priority: payload.priority,
       requested_by: payload.requestedBy ?? null,
@@ -91,6 +96,9 @@ async function updateOrder(
   const updateData: Record<string, any> = {};
   if (payload.item !== undefined) updateData.item = payload.item;
   if (payload.quantity !== undefined) updateData.quantity = payload.quantity;
+  if (payload.totalPrice !== undefined) {
+    updateData.total_price = payload.totalPrice ?? null;
+  }
   if (payload.status !== undefined) updateData.status = payload.status;
   if (payload.priority !== undefined) updateData.priority = payload.priority;
   if (payload.requestedBy !== undefined) {

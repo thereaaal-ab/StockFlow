@@ -59,6 +59,14 @@ export default function OrdersPage() {
     return linkedClient?.name ?? "Client inconnu";
   };
 
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+
   const handleDrop = async (status: OrderStatus) => {
     if (!draggedOrderId) return;
     const target = orders.find((order) => order.id === draggedOrderId);
@@ -126,6 +134,16 @@ export default function OrdersPage() {
                         <div>
                           <p className="font-medium">{order.item}</p>
                           <p className="text-xs text-muted-foreground">Quantite: {order.quantity}</p>
+                          {order.totalPrice !== undefined ? (
+                            <p className="text-xs text-muted-foreground">
+                              Prix total: {formatCurrency(order.totalPrice)}
+                            </p>
+                          ) : null}
+                          {order.totalPrice !== undefined && order.quantity > 0 ? (
+                            <p className="text-xs text-muted-foreground">
+                              Prix unitaire: {formatCurrency(order.totalPrice / order.quantity)}
+                            </p>
+                          ) : null}
                         </div>
                         <Button
                           variant="ghost"

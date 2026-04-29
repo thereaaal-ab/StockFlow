@@ -156,7 +156,11 @@ export default function CrmPipeline() {
                     <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">{client.needs}</p>
                     {client.estimatedValue ? (
                       <p className="mt-2 text-xs font-medium">
-                        Valeur estimee: {client.estimatedValue.toLocaleString()} MAD
+                        Valeur estimee:{" "}
+                        {new Intl.NumberFormat("fr-FR", {
+                          style: "currency",
+                          currency: "EUR",
+                        }).format(client.estimatedValue)}
                       </p>
                     ) : null}
                   </div>

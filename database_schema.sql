@@ -349,6 +349,7 @@ CREATE TABLE IF NOT EXISTS orders (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
   item TEXT NOT NULL,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
+  total_price NUMERIC(12, 2) CHECK (total_price IS NULL OR total_price >= 0),
   status VARCHAR(20) NOT NULL DEFAULT 'a_commander'
     CHECK (status IN ('a_commander', 'commande', 'recu', 'annule')),
   priority VARCHAR(20) NOT NULL DEFAULT 'normale'

@@ -23,6 +23,7 @@ import { PipelineClient } from "@/hooks/usePipelineClients";
 type OrderFormValues = {
   item: string;
   quantity: number;
+  totalPrice?: number;
   status: OrderStatus;
   priority: OrderPriority;
   requestedBy?: string;
@@ -49,9 +50,18 @@ export function OrderModal({
   clients,
   isSubmitting = false,
 }: OrderModalProps) {
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+
   const [form, setForm] = useState<OrderFormValues>({
     item: "",
     quantity: 1,
+    totalPrice: undefined,
     status: "a_commander",
     priority: "normale",
     requestedBy: "",
@@ -68,6 +78,7 @@ export function OrderModal({
       setForm({
         item: order.item,
         quantity: order.quantity,
+        totalPrice: order.totalPrice,
         status: order.status,
         priority: order.priority,
         requestedBy: order.requestedBy,
@@ -82,6 +93,7 @@ export function OrderModal({
     setForm({
       item: "",
       quantity: 1,
+      totalPrice: undefined,
       status: "a_commander",
       priority: "normale",
       requestedBy: "",
@@ -93,6 +105,8 @@ export function OrderModal({
   }, [open, order]);
 
   const isEdition = Boolean(order);
+  const computedUnitPrice =
+    form.totalPrice !== undefined && form.quantity > 0 ? form.totalPrice / form.quantity : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -135,6 +149,33 @@ export function OrderModal({
                   setForm((prev) => ({ ...prev, quantity: Number(e.target.value || 1) }))
                 }
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="order-total-price">Prix total a payer (EUR)</Label>
+              <Input
+                id="order-total-price"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.totalPrice ?? ""}
+                placeholder="Ex: 500"
+                onChange={(e) => {
+                  const rawValue = e.target.value;
+                  setForm((prev) => ({
+                    ...prev,
+                    totalPrice: rawValue === "" ? undefined : Number(rawValue),
+                  }));
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Prix unitaire calcule</Label>
+              <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/30 px-3 py-2 text-sm">
+                {computedUnitPrice !== null ? formatCurrency(computedUnitPrice) : "-"}
+              </div>
             </div>
           </div>
 
