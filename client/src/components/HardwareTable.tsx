@@ -54,7 +54,7 @@ export function HardwareTable({
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-card-border bg-card shadow-card">
       <div className="max-h-[min(70vh,720px)] overflow-auto">
         <Table>
           <TableHeader className="sticky top-0 z-20 bg-card shadow-[inset_0_-1px_0_hsl(var(--border))]">
@@ -183,33 +183,21 @@ export function HardwareTable({
                     </TableCell>
                     {showStock && status && (
                       <TableCell className="h-[52px] py-2 align-middle">
-                        {status.tone === "success" && (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-muted/20 px-2.5 py-1 text-xs font-medium text-foreground">
-                            <span
-                              className="size-1.5 shrink-0 rounded-full bg-status-success"
-                              aria-hidden
-                            />
-                            {status.label}
-                          </span>
-                        )}
-                        {status.tone === "warning" && (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-status-warning/30 bg-status-warning/10 px-2.5 py-1 text-xs font-medium text-status-warning">
-                            <span
-                              className="size-1.5 shrink-0 rounded-full bg-status-warning"
-                              aria-hidden
-                            />
-                            {status.label}
-                          </span>
-                        )}
-                        {status.tone === "danger" && (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-status-error/30 bg-status-error/10 px-2.5 py-1 text-xs font-medium text-status-error">
-                            <span
-                              className="size-1.5 shrink-0 rounded-full bg-status-error"
-                              aria-hidden
-                            />
-                            {status.label}
-                          </span>
-                        )}
+                        {/* Badge R0 : pill mono, uppercase, couleur de feedback. */}
+                        <span
+                          className={cn(
+                            "ro-badge py-1",
+                            status.tone === "success" && "ro-badge-success",
+                            status.tone === "warning" && "ro-badge-warning",
+                            status.tone === "danger" && "ro-badge-error"
+                          )}
+                        >
+                          <span
+                            className="size-1.5 shrink-0 rounded-full bg-current"
+                            aria-hidden
+                          />
+                          {status.label}
+                        </span>
                       </TableCell>
                     )}
                     <TableCell className="h-[52px] py-2 text-right align-middle tabular-nums">

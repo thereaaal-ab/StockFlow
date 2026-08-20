@@ -115,20 +115,22 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-0">
+    <Sidebar collapsible="icon" className="border-0 bg-ink-850">
       <SidebarHeader className="border-0 px-3 pb-2 pt-4">
         <div className="flex items-center gap-2.5 px-1">
+          {/* Dans les interfaces denses, le mark se réduit à une tuile de 30-40px. */}
           <div
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-xs font-bold text-primary ring-1 ring-primary/25"
+            className="flex size-9 shrink-0 items-center justify-center rounded-md bg-brand-500 font-mono text-sm font-extrabold text-ink-850"
+            style={{ fontFeatureSettings: "'zero' 1" }}
             aria-hidden
           >
-            IP
+            R0
           </div>
           <div className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
-            <span className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
+            <span className="truncate text-sm font-extrabold tracking-heading text-[#F6F8F7]">
               Inventaire Pro
             </span>
-            <span className="truncate text-[11px] text-muted-foreground">
+            <span className="ro-overline truncate text-[10px] text-ink-400">
               Gestion matériel
             </span>
           </div>
@@ -137,7 +139,7 @@ export function AppSidebar() {
 
       <SidebarContent className="gap-0 border-0 px-2">
         <SidebarGroup className="py-0">
-          <SidebarGroupLabel className="mb-1 px-2 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+          <SidebarGroupLabel className="ro-overline mb-1.5 px-3 text-[10px] text-ink-500">
             Navigation
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -151,7 +153,11 @@ export function AppSidebar() {
                       isActive={isActive}
                       tooltip={item.title}
                       className={cn(
-                        isActive && "text-primary [&>svg]:text-primary"
+                        "text-ink-200 [&>svg]:text-ink-400 transition-colors duration-fast ease-ro",
+                        "hover:bg-ink-800 hover:text-[#F6F8F7]",
+                        // L'état actif est jaune : c'est le seul accent de marque du rail.
+                        "data-[active=true]:bg-ink-800 data-[active=true]:font-bold",
+                        "data-[active=true]:text-brand-500 data-[active=true]:[&>svg]:text-brand-500"
                       )}
                       data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
                     >
@@ -176,7 +182,10 @@ export function AppSidebar() {
                   isActive={location === "/settings"}
                   tooltip="Paramètres"
                   className={cn(
-                    location === "/settings" && "text-primary [&>svg]:text-primary"
+                    "text-ink-200 [&>svg]:text-ink-400 transition-colors duration-fast ease-ro",
+                    "hover:bg-ink-800 hover:text-[#F6F8F7]",
+                    "data-[active=true]:bg-ink-800 data-[active=true]:font-bold",
+                    "data-[active=true]:text-brand-500 data-[active=true]:[&>svg]:text-brand-500"
                   )}
                   data-testid="link-settings"
                 >
@@ -192,26 +201,18 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="mt-auto border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-3 rounded-xl bg-sidebar-accent/40 p-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:p-1">
-          <div
-            className="rounded-full p-[2px]"
-            style={{
-              background:
-                "linear-gradient(135deg, hsl(239 84% 67%), hsl(188 94% 43%))",
-            }}
-          >
-            <Avatar className="size-9 border-2 border-sidebar bg-sidebar">
-              <AvatarImage src={getUserAvatar()} alt={getUserName()} />
-              <AvatarFallback className="bg-sidebar text-sm font-semibold text-sidebar-foreground">
-                {getUserInitials()}
-              </AvatarFallback>
-            </Avatar>
-          </div>
+        <div className="flex items-center gap-3 rounded-lg bg-ink-800 p-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:p-1">
+          <Avatar className="size-9 shrink-0 ring-2 ring-mint-500">
+            <AvatarImage src={getUserAvatar()} alt={getUserName()} />
+            <AvatarFallback className="bg-ink-700 text-sm font-bold text-[#F6F8F7]">
+              {getUserInitials()}
+            </AvatarFallback>
+          </Avatar>
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-            <p className="truncate text-sm font-medium text-[color:var(--enterprise-text-primary,hsl(var(--sidebar-foreground)))]">
+            <p className="truncate text-sm font-bold text-[#F6F8F7]">
               {getUserName()}
             </p>
-            <p className="truncate text-xs text-[color:var(--enterprise-text-muted,hsl(var(--muted-foreground)))]">
+            <p className="ro-data truncate text-[11px] text-ink-400">
               {getUserEmail()}
             </p>
           </div>
@@ -219,7 +220,7 @@ export function AppSidebar() {
         <Button
           variant="ghost"
           size="sm"
-          className="mt-2 w-full justify-start gap-2 text-muted-foreground transition-colors duration-150 hover:text-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+          className="mt-2 w-full justify-start gap-2 rounded-lg text-ink-300 hover:bg-ink-800 hover:text-[#F6F8F7] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
           onClick={handleLogout}
           data-testid="button-logout"
         >

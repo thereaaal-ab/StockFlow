@@ -4,12 +4,12 @@ import { cn } from "@/lib/utils"
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
   ({ className, type, ...props }, ref) => {
-    // h-9 to match icon buttons and default buttons.
     return (
       <input
         type={type}
         className={cn(
-          "flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-base text-foreground shadow-sm ring-offset-background transition-[border-color,box-shadow] duration-150 ease-out file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          // R0 : champ 48px, radius 14, bordure 1px — 2px menthe au focus.
+          "flex h-11 w-full rounded-lg border border-input bg-card px-4 py-2 text-[15px] text-foreground transition-[border-color,box-shadow] duration-fast ease-ro file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-[color:var(--ro-text-low)] focus-visible:outline-none focus-visible:border-mint-500 focus-visible:shadow-focus disabled:cursor-not-allowed disabled:bg-[#E4E4E7] disabled:text-[#A0A0A8] dark:disabled:bg-ink-700 dark:disabled:text-ink-500",
           className
         )}
         ref={ref}

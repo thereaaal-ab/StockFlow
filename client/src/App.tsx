@@ -73,7 +73,7 @@ function AuthenticatedLayout() {
       <div className="flex h-screen w-full bg-background">
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-card/30 px-4 backdrop-blur-sm">
+          <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-4">
             <div className="flex items-center gap-3">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
             </div>
@@ -84,7 +84,7 @@ function AuthenticatedLayout() {
               key={location}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               className="mx-auto max-w-[1600px]"
             >
               <Router />
@@ -105,8 +105,8 @@ function App() {
         <TooltipProvider>
           <div className="flex min-h-screen items-center justify-center bg-background">
             <div className="space-y-4 text-center">
-              <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-muted border-t-primary" />
-              <p className="text-sm text-muted-foreground">Chargement...</p>
+              <div className="mx-auto size-12 animate-spin rounded-full border-2 border-muted border-t-mint-500" />
+              <p className="ro-overline text-[11px]">Chargement</p>
             </div>
           </div>
           <Toaster />

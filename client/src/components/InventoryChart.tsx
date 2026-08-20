@@ -10,6 +10,7 @@ import {
   Legend,
 } from "recharts";
 import { formatChartValue, formatCurrencyCompact, cn } from "@/lib/utils";
+import { useChartPalette } from "@/lib/chartPalette";
 
 interface ChartData {
   name: string;
@@ -26,25 +27,26 @@ interface InventoryChartProps {
   showGroupedBars?: boolean;
 }
 
-const ACCENT_BAR = "hsl(239 84% 67% / 0.7)";
-const SECOND_BAR = "hsl(188 94% 43% / 0.75)";
-
 export function InventoryChart({
   title,
   data,
   dataKey = "value",
-  color = ACCENT_BAR,
+  color,
   showGroupedBars = false,
 }: InventoryChartProps) {
+  // Palette R0, résolue selon le registre clair/sombre.
+  const chart = useChartPalette();
+  const ACCENT_BAR = chart.colors[0];   // menthe
+  const SECOND_BAR = chart.colors[1];   // encre (clair en registre sombre)
+
   return (
     <Card
       className={cn(
-        "overflow-hidden rounded-xl border border-border bg-card shadow-sm",
-        "transition-[border-color] duration-150 ease-out hover:border-[color:var(--enterprise-border-strong,hsl(var(--border)))]"
+        "overflow-hidden rounded-xl border border-card-border bg-card shadow-card"
       )}
     >
       <CardHeader className="border-b border-border/60 pb-4">
-        <CardTitle className="text-sm font-semibold tracking-tight sm:text-base">{title}</CardTitle>
+        <CardTitle className="text-sm sm:text-base">{title}</CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
         <ResponsiveContainer width="100%" height={300}>
@@ -52,17 +54,16 @@ export function InventoryChart({
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
-              stroke="hsl(var(--border))"
-              opacity={0.6}
+              stroke={chart.grid}
             />
             <XAxis
               dataKey="name"
-              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+              tick={{ fill: chart.axis, fontSize: 11 }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
-              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+              tick={{ fill: chart.axis, fontSize: 11, fontFamily: "var(--ro-font-data)" }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(value) => formatChartValue(value)}
@@ -71,8 +72,8 @@ export function InventoryChart({
               contentStyle={{
                 backgroundColor: "hsl(var(--popover))",
                 border: "1px solid hsl(var(--border))",
-                borderRadius: "12px",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+                borderRadius: "14px",
+                boxShadow: "var(--ro-shadow-raised)",
               }}
               labelStyle={{ color: "hsl(var(--popover-foreground))" }}
               formatter={(value: number) => formatCurrencyCompact(value)}
@@ -98,7 +99,7 @@ export function InventoryChart({
             ) : (
               <Bar
                 dataKey={dataKey}
-                fill={color}
+                fill={color ?? ACCENT_BAR}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={56}
               />

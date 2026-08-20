@@ -25,8 +25,9 @@ import { useCategories } from "@/hooks/useCategories";
 import { useMemo, useState } from "react";
 import { formatCurrencyCompact, formatCurrencyFull } from "@/lib/utils";
 import { diffInMonths, calculateClientMetrics } from "@/lib/clientCalculations";
+import { useChartPalette } from "@/lib/chartPalette";
 
-const CHART_COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ec4899", "#06b6d4"];
+
 
 function capitalizeCategoryDisplay(value: string): string {
   const s = value.trim();
@@ -62,6 +63,9 @@ function abbreviateKioskCategoryForChart(categoryName: string): string {
 }
 
 export default function Analytics() {
+  // Palette R0, résolue selon le registre clair/sombre.
+  const chart = useChartPalette();
+  const CHART_COLORS = chart.colors;
   const { counts, isLoading: countsLoading } = useDashboardCounts();
   const { products, isLoading: productsLoading } = useProducts();
   const { clients, isLoading: clientsLoading } = useClients();
@@ -392,12 +396,23 @@ export default function Analytics() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={(entry: any) => {
-                      const categoryName = entry.name.split(' (')[0];
-                      return `${categoryName}\n${entry.percentage.toFixed(1)}%`;
-                    }}
+                    // Un libellé ne prend jamais la couleur de sa part : il doit
+                    // rester lisible sur les deux registres.
+                    label={(p: any) => (
+                      <text
+                        x={p.x}
+                        y={p.y}
+                        fill={chart.label}
+                        fontSize={11}
+                        fontWeight={600}
+                        textAnchor={p.x > p.cx ? "start" : "end"}
+                        dominantBaseline="central"
+                      >
+                        {`${p.name.split(" (")[0]} ${p.percentage.toFixed(1)}%`}
+                      </text>
+                    )}
                     outerRadius={80}
-                    fill="#8884d8"
+                    fill={CHART_COLORS[0]}
                     dataKey="value"
                   >
                     {hardwareDistribution.map((entry, index) => (
@@ -414,7 +429,7 @@ export default function Analytics() {
                     contentStyle={{
                       backgroundColor: "hsl(var(--popover))",
                       border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)",
+                      borderRadius: "14px",
                     }}
                   />
                 </PieChart>
@@ -440,11 +455,21 @@ export default function Analytics() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) =>
-                      `${name} ${(percent * 100).toFixed(0)}%`
-                    }
+                    label={(p: any) => (
+                      <text
+                        x={p.x}
+                        y={p.y}
+                        fill={chart.label}
+                        fontSize={11}
+                        fontWeight={600}
+                        textAnchor={p.x > p.cx ? "start" : "end"}
+                        dominantBaseline="central"
+                      >
+                        {`${p.name} ${(p.percent * 100).toFixed(0)}%`}
+                      </text>
+                    )}
                     outerRadius={80}
-                    fill="#8884d8"
+                    fill={CHART_COLORS[0]}
                     dataKey="value"
                   >
                     {revenueByCategory.map((entry, index) => (
@@ -456,7 +481,7 @@ export default function Analytics() {
                     contentStyle={{
                       backgroundColor: "hsl(var(--popover))",
                       border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)",
+                      borderRadius: "14px",
                     }}
                   />
                 </PieChart>

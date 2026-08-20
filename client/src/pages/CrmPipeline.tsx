@@ -92,7 +92,7 @@ export default function CrmPipeline() {
         <div>
           <h1 className="page-heading">Pipeline Clients</h1>
           <p className="mt-1 text-muted-foreground">
-            Suivi commercial visuel du prospect jusqu'a la validation.
+            Suivi commercial visuel, du prospect jusqu'à la validation.
           </p>
         </div>
         <Button onClick={() => setIsCreateOpen(true)}>
@@ -102,7 +102,7 @@ export default function CrmPipeline() {
       </div>
 
       {isLoading ? (
-        <div className="py-8 text-center text-muted-foreground">Chargement du pipeline...</div>
+        <div className="ro-overline py-8 text-center text-[11px]">Chargement du pipeline</div>
       ) : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
           {CLIENT_STATUSES.map((status) => (
@@ -112,23 +112,26 @@ export default function CrmPipeline() {
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => void handleDrop(status)}
             >
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center justify-between text-sm">
-                  <span>{STATUS_LABELS[status]}</span>
-                  <Badge variant="secondary">{groupedClients[status].length}</Badge>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center justify-between gap-2">
+                  {/* Overline : le nom de colonne est un label, pas un titre. */}
+                  <span className="ro-overline text-[11px]">{STATUS_LABELS[status]}</span>
+                  <span className="ro-data text-sm font-bold text-foreground">
+                    {groupedClients[status].length}
+                  </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {groupedClients[status].map((client) => (
                   <div
                     key={client.id}
-                    className="cursor-grab rounded-lg border bg-card p-3 active:cursor-grabbing"
+                    className="ro-press cursor-grab rounded-md border border-card-border bg-muted p-3 shadow-sm active:cursor-grabbing"
                     draggable
                     onDragStart={() => setDraggedClientId(client.id)}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="font-medium">{client.name}</p>
+                        <p className="font-bold leading-tight">{client.name}</p>
                         {client.company ? (
                           <p className="text-xs text-muted-foreground">{client.company}</p>
                         ) : null}
@@ -155,19 +158,21 @@ export default function CrmPipeline() {
                     </div>
                     <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">{client.needs}</p>
                     {client.estimatedValue ? (
-                      <p className="mt-2 text-xs font-medium">
-                        Valeur estimee:{" "}
-                        {new Intl.NumberFormat("fr-FR", {
-                          style: "currency",
-                          currency: "EUR",
-                        }).format(client.estimatedValue)}
-                      </p>
+                      <div className="mt-3 flex items-baseline justify-between gap-2 border-t border-dashed border-border pt-2">
+                        <span className="ro-overline text-[9px]">Valeur estimée</span>
+                        <span className="ro-figure text-sm">
+                          {new Intl.NumberFormat("fr-FR", {
+                            style: "currency",
+                            currency: "EUR",
+                          }).format(client.estimatedValue)}
+                        </span>
+                      </div>
                     ) : null}
                   </div>
                 ))}
                 {groupedClients[status].length === 0 ? (
                   <div className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
-                    Deposez un client ici
+                    Déposez un client ici
                   </div>
                 ) : null}
               </CardContent>

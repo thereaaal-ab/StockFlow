@@ -1,0 +1,142 @@
+/* ==========================================================================
+   R0 — Rushorder Design System
+   Jetons repris tels quels du paquet de design (primitives, sémantique,
+   dimensions). Les composants ne consomment QUE les alias sémantiques
+   (--ro-text-high, --ro-level-00, …), jamais une primitive (--ro-ink-850).
+
+   Le sombre est ici un registre : `.dark` (thème applicatif) et
+   `[data-theme="dark"]` (section encre posée dans une page claire) partagent
+   exactement les mêmes valeurs.
+   ========================================================================== */
+
+/* --- Webfonts self-hostées, binaires identiques à @ro/tokens --------------- */
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  src: url('/fonts/bricolage-grotesque-variable.woff2') format('woff2-variations'),
+       url('/fonts/bricolage-grotesque-variable.woff2') format('woff2');
+  font-weight: 200 800;
+  font-stretch: 75% 100%;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
+       url('/fonts/geist-mono-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --ro-font-text: 'Bricolage Grotesque', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ro-font-data: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  /* zéro barré + chiffres tabulaires : la signature R0 */
+  --ro-font-feature-data: 'zero' 1, 'tnum' 1;
+
+  /* --- primitives : 5 rampes --------------------------------------------- */
+  --ro-white: #FFFFFF; --ro-black: #000000;
+
+  --ro-ink-50: #E9EBF2;  --ro-ink-100: #DFE3EC; --ro-ink-200: #C0C7D8; --ro-ink-300: #9DA9C4;
+  --ro-ink-400: #7A88A9; --ro-ink-500: #536087; --ro-ink-600: #33436C; --ro-ink-700: #24304F;
+  --ro-ink-800: #16233F; --ro-ink-850: #101B33; --ro-ink-900: #0B1226;
+
+  --ro-mint-50: #E6F7F5; --ro-mint-100: #D9F2EF; --ro-mint-200: #B3E7E0; --ro-mint-300: #8CDBD1;
+  --ro-mint-400: #52C9BB; --ro-mint-500: #17B3A6; --ro-mint-600: #0E8177; --ro-mint-700: #0B6159;
+  --ro-mint-800: #07423C; --ro-mint-900: #042A26;
+
+  --ro-yellow-50: #FFFCE0; --ro-yellow-100: #FFF9C2; --ro-yellow-200: #FFF285; --ro-yellow-300: #FFEC47;
+  --ro-yellow-400: #FFE81F; --ro-yellow-500: #FFE500; --ro-yellow-600: #E8D000; --ro-yellow-700: #B5A800;
+  --ro-yellow-800: #847A00; --ro-yellow-900: #4A4720;
+
+  --ro-red-50: #FDE7E7; --ro-red-100: #F9D2D3; --ro-red-200: #F2A6A9; --ro-red-300: #EC7A7F;
+  --ro-red-400: #E85A60; --ro-red-500: #E5484D; --ro-red-600: #C93B40; --ro-red-700: #A32F33;
+  --ro-red-800: #7A2326; --ro-red-900: #4E1618;
+
+  --ro-gray-00: #FFFFFF; --ro-gray-25: #FAFBFA; --ro-gray-50: #F6F8F7; --ro-gray-75: #F4F4F5;
+  --ro-gray-100: #ECECEE; --ro-gray-200: #E4E4E7; --ro-gray-300: #C9C9CF; --ro-gray-400: #A0A0A8;
+  --ro-gray-500: #85858E; --ro-gray-550: #605F6B; --ro-gray-600: #4A4A54; --ro-gray-700: #33333B;
+  --ro-gray-800: #1F1F26; --ro-gray-900: #101014;
+
+  /* --- niveaux + contenu (registre clair) --------------------------------- */
+  --ro-level-00: #FFFFFF;  /* carte              */
+  --ro-level-05: #FAFBFA;  /* carte alternée     */
+  --ro-level-10: #F6F8F7;  /* la page            */
+  --ro-level-15: #F4F4F5;  /* surface enfoncée   */
+
+  --ro-text-high: #101B33;   --ro-icon-high: #101B33;   --ro-border-high: #C9C9CF;
+  --ro-text-medium: #605F6B; --ro-icon-medium: #605F6B; --ro-border-medium: #E4E4E7;
+  --ro-text-low: #9DA9C4;    --ro-icon-low: #9DA9C4;    --ro-border-low: #ECECEE;
+  --ro-text-lower: #C9C9CF;
+
+  --ro-text-on-brand: #101B33;   /* texte sur jaune : TOUJOURS encre           */
+  --ro-text-brand-safe: #847A00; /* le SEUL jaune lisible en texte sur clair   */
+  --ro-text-accent: #0E8177;
+
+  --ro-feedback-info-bg: #E9EBF2; --ro-feedback-info-bd: #C0C7D8; --ro-feedback-info-fg: #33436C;
+  --ro-feedback-success-bg: #E6F7F5; --ro-feedback-success-bd: #B3E7E0; --ro-feedback-success-fg: #0E8177;
+  --ro-feedback-warning-bg: #FFFCE0; --ro-feedback-warning-bd: #FFF285; --ro-feedback-warning-fg: #847A00;
+  --ro-feedback-error-bg: #FDE7E7; --ro-feedback-error-bd: #F2A6A9; --ro-feedback-error-fg: #C93B40;
+
+  /* --- géométrie ---------------------------------------------------------- */
+  --ro-radius-sm: 8px; --ro-radius: 12px; --ro-radius-md: 14px; --ro-radius-lg: 16px;
+  --ro-radius-xl: 20px; --ro-radius-2xl: 24px; --ro-radius-3xl: 28px; --ro-radius-hero: 32px;
+  --ro-radius-pill: 9999px;
+
+  --ro-card-radius: 20px; --ro-card-padding: 24px; --ro-card-border: 1px;
+  --ro-input-height: 48px; --ro-input-radius: 14px;
+  --ro-ticket-radius: 14px; --ro-ticket-divider: 1.5px dashed;
+  --ro-hit-min: 44px;
+
+  /* --- ombres : jamais de noir, toujours de l'encre diluée ---------------- */
+  --ro-shadow-card: 0 12px 22px rgba(16, 27, 51, 0.08);
+  --ro-shadow-raised: 0 22px 36px rgba(16, 27, 51, 0.14);
+  --ro-shadow-overlay: 0 40px 90px rgba(16, 27, 51, 0.30);
+  --ro-shadow-brand: 0 8px 22px rgba(255, 229, 0, 0.35);
+  --ro-shadow-danger: 0 8px 22px rgba(229, 72, 77, 0.30);
+
+  /* --- motion : une seule courbe pour toute la marque --------------------- */
+  --ro-duration-fast: 0.2s;
+  --ro-duration-base: 0.35s;
+  --ro-duration-reveal: 0.8s;
+  --ro-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ro-reveal-offset: 32px;
+  --ro-stagger: 130ms;
+  --ro-pressed-scale: 0.97;
+
+  /* --- motifs signature ---------------------------------------------------- */
+  --ro-dots-ink: radial-gradient(rgba(255, 229, 0, 0.10) 1px, transparent 1px);
+  --ro-dots-size: 28px 28px;
+
+  --ro-focus-ring: 0 0 0 3px rgba(23, 179, 166, 0.55);
+  --ro-focus-offset: 2px;
+}
+
+/* --- registre sombre : thème global (.dark) ou section encre --------------- */
+.dark,
+[data-theme="dark"] {
+  --ro-level-00: #0B1226;
+  --ro-level-05: #101B33;
+  --ro-level-10: #16233F;
+  --ro-level-15: #24304F;
+
+  --ro-text-high: #F6F8F7;   --ro-icon-high: #F6F8F7;   --ro-border-high: #33436C;
+  --ro-text-medium: #9DA9C4; --ro-icon-medium: #9DA9C4; --ro-border-medium: #24304F;
+  --ro-text-low: #536087;    --ro-icon-low: #536087;    --ro-border-low: #16233F;
+  --ro-text-lower: #33436C;
+
+  --ro-text-on-brand: #101B33;
+  --ro-text-brand-safe: #FFE500; /* sur sombre le jaune redevient lisible */
+  --ro-text-accent: #17B3A6;
+
+  --ro-feedback-info-bg: #16233F; --ro-feedback-info-bd: #33436C; --ro-feedback-info-fg: #C0C7D8;
+  --ro-feedback-success-bg: #042A26; --ro-feedback-success-bd: #0B6159; --ro-feedback-success-fg: #52C9BB;
+  --ro-feedback-warning-bg: #4A4720; --ro-feedback-warning-bd: #B5A800; --ro-feedback-warning-fg: #FFEC47;
+  --ro-feedback-error-bg: #4E1618; --ro-feedback-error-bd: #A32F33; --ro-feedback-error-fg: #EC7A7F;
+
+  /* en registre sombre l'ombre disparaît presque : la hiérarchie passe par
+     les niveaux et les bordures */
+  --ro-shadow-card: 0 12px 22px rgba(0, 0, 0, 0.28);
+  --ro-shadow-raised: 0 22px 36px rgba(0, 0, 0, 0.38);
+  --ro-shadow-overlay: 0 40px 90px rgba(0, 0, 0, 0.55);
+}
