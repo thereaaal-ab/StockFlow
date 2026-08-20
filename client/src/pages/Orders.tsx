@@ -23,10 +23,11 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   annule: "Annule",
 };
 
+/* La priorité est un état de feedback, pas une action : neutre / info / rouge. */
 const PRIORITY_CLASSNAME: Record<OrderPriority, string> = {
-  basse: "bg-muted text-muted-foreground",
-  normale: "bg-primary/10 text-primary",
-  urgente: "bg-destructive/10 text-destructive",
+  basse: "ro-badge-info",
+  normale: "ro-badge-warning",
+  urgente: "ro-badge-error",
 };
 
 export default function OrdersPage() {
@@ -117,31 +118,38 @@ export default function OrdersPage() {
                 onDrop={() => void handleDrop(status)}
               >
                 <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center justify-between text-sm">
-                    <span>{STATUS_LABELS[status]}</span>
-                    <Badge variant="secondary">{groupedOrders[status].length}</Badge>
+                  <CardTitle className="flex items-center justify-between gap-2">
+                    <span className="ro-overline text-[11px]">{STATUS_LABELS[status]}</span>
+                    <span className="ro-data text-sm font-bold text-foreground">
+                      {groupedOrders[status].length}
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {groupedOrders[status].map((order) => (
                     <div
                       key={order.id}
-                      className="cursor-grab rounded-lg border bg-card p-3 active:cursor-grabbing"
+                      className="ro-press cursor-grab rounded-md border border-card-border bg-muted p-3 shadow-sm active:cursor-grabbing"
                       draggable
                       onDragStart={() => setDraggedOrderId(order.id)}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="font-medium">{order.item}</p>
-                          <p className="text-xs text-muted-foreground">Quantite: {order.quantity}</p>
+                          <p className="font-bold leading-tight">{order.item}</p>
+                          {/* Le chiffre porte la phrase : quantité et montants en mono. */}
+                          <p className="mt-1.5 text-xs text-muted-foreground">
+                            <span className="ro-data font-bold text-foreground">
+                              ×{order.quantity}
+                            </span>
+                          </p>
                           {order.totalPrice !== undefined ? (
-                            <p className="text-xs text-muted-foreground">
-                              Prix total: {formatCurrency(order.totalPrice)}
+                            <p className="ro-figure mt-1 text-base">
+                              {formatCurrency(order.totalPrice)}
                             </p>
                           ) : null}
                           {order.totalPrice !== undefined && order.quantity > 0 ? (
-                            <p className="text-xs text-muted-foreground">
-                              Prix unitaire: {formatCurrency(order.totalPrice / order.quantity)}
+                            <p className="ro-data mt-0.5 text-[11px] text-muted-foreground">
+                              {formatCurrency(order.totalPrice / order.quantity)} / unité
                             </p>
                           ) : null}
                         </div>
@@ -155,7 +163,9 @@ export default function OrdersPage() {
                         </Button>
                       </div>
                       <div className="mt-2 flex items-center gap-2">
-                        <Badge className={PRIORITY_CLASSNAME[order.priority]}>{order.priority}</Badge>
+                        <Badge variant="outline" className={PRIORITY_CLASSNAME[order.priority]}>
+                          {order.priority}
+                        </Badge>
                         <Badge variant="outline">{getLinkedClientName(order.linkedClientId)}</Badge>
                       </div>
                       {order.notes ? (
@@ -171,7 +181,7 @@ export default function OrdersPage() {
           {orders.some((order) => order.status === "annule") ? (
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Commandes annulees</CardTitle>
+                <CardTitle className="text-sm">Commandes annulées</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 gap-2 md:grid-cols-2">
                 {orders

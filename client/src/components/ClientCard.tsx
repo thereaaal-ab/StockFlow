@@ -51,59 +51,56 @@ export function ClientCard({
 
   return (
     <Card
-      className="group/card relative overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-[border-color,box-shadow] duration-150 ease-out hover:border-[color:var(--enterprise-border-strong,hsl(var(--border)))]"
+      className="group/card ro-lift relative overflow-hidden rounded-xl border border-card-border bg-card shadow-card"
       data-testid={`card-client-${client.client_name.toLowerCase().replace(/\s+/g, "-")}`}
     >
       <CardHeader className="space-y-3 border-b border-border/60 pb-4">
         <div className="flex items-start justify-between gap-3">
-          <CardTitle className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold tracking-tight sm:text-base">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <CardTitle className="flex min-w-0 flex-1 items-center gap-2 text-sm font-extrabold tracking-heading sm:text-base">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-mint-50 text-mint-600 dark:bg-mint-900 dark:text-mint-400">
               <Users className="size-4" aria-hidden />
             </span>
             <span className="truncate">{client.client_name}</span>
           </CardTitle>
+          {/* Un badge dit un mot. « Rentable » / « À couvrir », pas une phrase. */}
           <span
             className={cn(
-              "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
-              metrics.is_profitable
-                ? "border border-status-success/25 bg-status-success/10 text-status-success"
-                : "border border-status-warning/30 bg-status-warning/10 text-status-warning"
+              "ro-badge shrink-0 py-1",
+              metrics.is_profitable ? "ro-badge-success" : "ro-badge-warning"
             )}
           >
-            {metrics.is_profitable ? "Profitable" : "Still covering investment"}
+            {metrics.is_profitable ? "Rentable" : "À couvrir"}
           </span>
         </div>
       </CardHeader>
       <CardContent className="space-y-5 pt-5">
         <div className="grid grid-cols-2 gap-x-4 gap-y-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <Euro className="size-3.5 shrink-0 opacity-80" />
-              <span>Montant d&apos;installation</span>
+            <div className="ro-overline flex items-center gap-2 text-[10px]">
+              <Euro className="size-3.5 shrink-0" />
+              <span>Installation</span>
             </div>
-            <p className="text-sm font-bold tabular-nums tracking-tight sm:text-base">
+            <p className="ro-figure text-lg">
               {formatCurrencyCompact(metrics.installation_costs)}
             </p>
           </div>
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <Euro className="size-3.5 shrink-0 opacity-80" />
-              <span>Frais mensuels</span>
+            <div className="ro-overline flex items-center gap-2 text-[10px]">
+              <Euro className="size-3.5 shrink-0" />
+              <span>Mensuel</span>
             </div>
-            <p className="text-sm font-bold tabular-nums tracking-tight sm:text-base">
+            <p className="ro-figure text-lg">
               {formatCurrencyCompact(displayMonthlyFee)}
             </p>
           </div>
         </div>
 
-        <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-3">
+        <div className="rounded-md bg-muted px-4 py-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-              Flux net
-            </span>
+            <span className="ro-overline text-[10px]">Flux net</span>
             <p
               className={cn(
-                "text-sm font-bold tabular-nums tracking-tight sm:text-base",
+                "ro-figure text-xl",
                 metrics.net_cash_flow >= 0 ? "text-status-success" : "text-status-error"
               )}
             >
@@ -116,18 +113,18 @@ export function ClientCard({
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <Package className="size-3.5 shrink-0 opacity-80" />
-              <span>Quantité produits</span>
+            <div className="ro-overline flex items-center gap-2 text-[10px]">
+              <Package className="size-3.5 shrink-0" />
+              <span>Produits</span>
             </div>
-            <p className="text-sm font-bold tabular-nums sm:text-base">{client.product_quantity}</p>
+            <p className="ro-figure text-lg">{client.product_quantity}</p>
           </div>
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <Calendar className="size-3.5 shrink-0 opacity-80" />
-              <span>Date de rentabilité</span>
+            <div className="ro-overline flex items-center gap-2 text-[10px]">
+              <Calendar className="size-3.5 shrink-0" />
+              <span>Rentabilité</span>
             </div>
-            <p className="text-sm font-bold tabular-nums text-primary sm:text-base">
+            <p className="ro-data text-sm font-bold text-foreground">
               {metrics.profitability_date ||
                 calculateProfitableDate(
                   client.contract_start_date,
@@ -141,7 +138,7 @@ export function ClientCard({
         <Button
           type="button"
           variant="outline"
-          className="h-10 w-full rounded-lg border-border bg-secondary/50 font-medium text-secondary-foreground transition-colors duration-150 hover:bg-muted/60"
+          className="w-full"
           onClick={onViewDetails}
           data-testid="button-view-details"
         >
@@ -158,7 +155,7 @@ export function ClientCard({
             type="button"
             variant="outline"
             size="icon"
-            className="size-8 rounded-lg border-border hover:bg-muted/50"
+            className="size-8"
             onClick={onEdit}
             data-testid="button-edit-client"
           >
@@ -168,7 +165,7 @@ export function ClientCard({
             type="button"
             variant="outline"
             size="icon"
-            className="size-8 rounded-lg border-border hover:bg-muted/50"
+            className="size-8"
             onClick={() => setShowDeleteDialog(true)}
             data-testid="button-delete-client"
             disabled={isDeleting}
@@ -194,10 +191,11 @@ export function ClientCard({
                 onDelete();
                 setShowDeleteDialog(false);
               }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground shadow-danger hover:bg-[#C93B40]"
               disabled={isDeleting}
             >
-              {isDeleting ? "Suppression..." : "Supprimer"}
+              {/* Un bouton destructif répète son verbe, jamais « OK ». */}
+              {isDeleting ? "Suppression…" : "Supprimer le client"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

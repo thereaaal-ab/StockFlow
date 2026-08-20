@@ -1,93 +1,92 @@
+@import "./styles/r0.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE */
+/* ==========================================================================
+   Pont R0 → shadcn.
+   Les composants shadcn lisent des triplets HSL ; chaque valeur ci-dessous est
+   la conversion exacte d'un jeton R0. Aucune couleur n'est inventée.
+   Registre clair : la page en #F6F8F7 (level-10), les cartes en blanc.
+   ========================================================================== */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(16, 27, 51, .10);
+  --badge-outline: rgba(16, 27, 51, .06);
 
   /* Automatic computation of border around primary / danger buttons */
   --opaque-button-border-intensity: -8; /* In terms of percentages */
 
   /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(16, 27, 51, .04);
+  --elevate-2: rgba(16, 27, 51, .09);
 
-  --background: 0 0% 98%;
+  --background: 150 12% 96.9%;      /* level-10  #F6F8F7 */
+  --foreground: 221 52% 13.1%;      /* text-high #101B33 */
 
-  --foreground: 220 13% 13%;
+  --border: 240 6% 90.0%;           /* border-medium #E4E4E7 */
 
-  --border: 220 13% 88%;
+  --card: 0 0% 100.0%;              /* level-00  #FFFFFF */
+  --card-foreground: 221 52% 13.1%;
+  --card-border: 240 6% 90.0%;
 
-  --card: 220 5% 96%;
+  /* le rail de navigation est en encre : c'est le registre "carte encre" R0 */
+  --sidebar: 221 52% 13.1%;         /* ink-850 #101B33 */
+  --sidebar-foreground: 222 24% 80.0%;  /* ink-200 #C0C7D8 */
+  --sidebar-border: 223 37% 22.5%;      /* ink-700 #24304F */
 
-  --card-foreground: 220 13% 13%;
+  --sidebar-primary: 54 100% 50.0%;     /* yellow-500 #FFE500 */
+  --sidebar-primary-foreground: 221 52% 13.1%;
 
-  --card-border: 220 10% 90%;
+  --sidebar-accent: 221 48% 16.7%;      /* ink-800 #16233F */
+  --sidebar-accent-foreground: 150 12% 96.9%;
 
-  --sidebar: 220 8% 94%;
+  --sidebar-ring: 175 77% 39.6%;        /* mint-500 */
 
-  --sidebar-foreground: 220 13% 13%;
+  --popover: 0 0% 100.0%;
+  --popover-foreground: 221 52% 13.1%;
+  --popover-border: 240 6% 90.0%;
 
-  --sidebar-border: 220 12% 88%;
+  /* bold × neutral — l'action qui fait avancer. Le jaune reste réservé
+     à l'argent et aux moments de marque (voir .ro-brand-*). */
+  --primary: 221 52% 13.1%;         /* ink-850 */
+  --primary-foreground: 0 0% 100.0%;
 
-  --sidebar-primary: 217 91% 60%;
+  --secondary: 240 6% 92.9%;        /* gray-100 #ECECEE — subtle × neutral */
+  --secondary-foreground: 221 52% 13.1%;
 
-  --sidebar-primary-foreground: 0 0% 98%;
+  --muted: 240 5% 95.9%;            /* level-15 #F4F4F5 */
+  --muted-foreground: 245 6% 39.6%; /* text-medium #605F6B */
 
-  --sidebar-accent: 220 10% 88%;
+  --accent: 240 6% 92.9%;
+  --accent-foreground: 221 52% 13.1%;
 
-  --sidebar-accent-foreground: 220 13% 20%;
+  --destructive: 358 75% 59.0%;     /* red-500 #E5484D */
+  --destructive-foreground: 0 0% 100.0%;
 
-  --sidebar-ring: 217 91% 60%;
+  --input: 240 6% 90.0%;
+  --ring: 175 77% 39.6%;            /* anneau de focus menthe */
 
-  --popover: 220 12% 92%;
+  --chart-1: 175 77% 39.6%;         /* mint-500  */
+  --chart-2: 221 52% 13.1%;         /* ink-850   */
+  --chart-3: 54 100% 50.0%;         /* yellow-500 */
+  --chart-4: 222 25% 69.2%;         /* ink-300   */
+  --chart-5: 174 81% 14.3%;         /* mint-800  */
 
-  --popover-foreground: 220 13% 13%;
-
-  --popover-border: 220 15% 86%;
-
-  --primary: 217 91% 60%;
-
-  --primary-foreground: 0 0% 98%;
-
-  --secondary: 220 10% 87%;
-
-  --secondary-foreground: 220 13% 20%;
-
-  --muted: 220 12% 90%;
-
-  --muted-foreground: 220 10% 40%;
-
-  --accent: 220 15% 89%;
-
-  --accent-foreground: 220 13% 20%;
-
-  --destructive: 0 84% 60%;
-
-  --destructive-foreground: 0 0% 98%;
-
-  --input: 220 13% 75%;
-  --ring: 217 91% 60%;
-  --chart-1: 217 91% 45%;
-  --chart-2: 271 81% 56%;
-  --chart-3: 142 76% 36%;
-  --chart-4: 24 95% 53%;
-  --chart-5: 339 90% 51%;
-
-  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--ro-font-text);
   --font-serif: Georgia, serif;
-  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Monaco, Menlo, monospace;
-  --radius: .5rem; /* 8px */
-  --shadow-2xs: 0px 1px 2px 0px hsl(220 13% 13% / 0.05);
-  --shadow-xs: 0px 1px 2px 0px hsl(220 13% 13% / 0.06);
-  --shadow-sm: 0px 1px 2px 0px hsl(220 13% 13% / 0.05), 0px 1px 3px 0px hsl(220 13% 13% / 0.08);
-  --shadow: 0px 1px 3px 0px hsl(220 13% 13% / 0.1), 0px 1px 2px -1px hsl(220 13% 13% / 0.1);
-  --shadow-md: 0px 4px 6px -1px hsl(220 13% 13% / 0.1), 0px 2px 4px -2px hsl(220 13% 13% / 0.1);
-  --shadow-lg: 0px 10px 15px -3px hsl(220 13% 13% / 0.1), 0px 4px 6px -4px hsl(220 13% 13% / 0.1);
-  --shadow-xl: 0px 20px 25px -5px hsl(220 13% 13% / 0.1), 0px 8px 10px -6px hsl(220 13% 13% / 0.1);
-  --shadow-2xl: 0px 25px 50px -12px hsl(220 13% 13% / 0.25);
+  --font-mono: var(--ro-font-data);
+  --radius: .75rem;                 /* 12px — le rayon monte avec la surface */
+
+  /* aucune ombre noire : toutes sont de l'encre diluée */
+  --shadow-2xs: 0 1px 2px rgba(16, 27, 51, 0.05);
+  --shadow-xs: 0 1px 2px rgba(16, 27, 51, 0.06);
+  --shadow-sm: 0 2px 6px rgba(16, 27, 51, 0.06);
+  --shadow: 0 12px 22px rgba(16, 27, 51, 0.08);
+  --shadow-md: 0 12px 22px rgba(16, 27, 51, 0.08);
+  --shadow-lg: 0 22px 36px rgba(16, 27, 51, 0.14);
+  --shadow-xl: 0 22px 36px rgba(16, 27, 51, 0.14);
+  --shadow-2xl: 0 40px 90px rgba(16, 27, 51, 0.30);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
@@ -122,87 +121,89 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
+/* --- registre sombre : les quatre niveaux d'encre -------------------------- */
 .dark {
-  /* Enterprise palette (refined dark SaaS) */
-  --bg-base: #0a0a0b;
-  --bg-surface: #111113;
-  --bg-elevated: #18181b;
-  --bg-hover: #1f1f23;
-  --enterprise-border: #27272a;
-  --enterprise-border-strong: #3f3f46;
-  --enterprise-accent: #6366f1;
-  --enterprise-accent-hover: #4f46e5;
-  --enterprise-success: #22c55e;
-  --enterprise-warning: #f59e0b;
-  --enterprise-danger: #ef4444;
-  --enterprise-text-primary: #fafafa;
-  --enterprise-text-secondary: #a1a1aa;
-  --enterprise-text-muted: #52525b;
+  --bg-base: #0B1226;      /* level-00 */
+  --bg-surface: #101B33;   /* level-05 */
+  --bg-elevated: #16233F;  /* level-10 */
+  --bg-hover: #24304F;     /* level-15 */
+  --enterprise-border: #24304F;
+  --enterprise-border-strong: #33436C;
+  --enterprise-accent: #17B3A6;
+  --enterprise-accent-hover: #0E8177;
+  --enterprise-success: #17B3A6;
+  --enterprise-warning: #FFE500;
+  --enterprise-danger: #E5484D;
+  --enterprise-text-primary: #F6F8F7;
+  --enterprise-text-secondary: #9DA9C4;
+  --enterprise-text-muted: #536087;
 
-  --button-outline: rgba(255, 255, 255, 0.1);
-  --badge-outline: rgba(255, 255, 255, 0.05);
+  --button-outline: rgba(255, 255, 255, 0.10);
+  --badge-outline: rgba(255, 255, 255, 0.06);
 
   --opaque-button-border-intensity: 9;
 
-  --elevate-1: rgba(255, 255, 255, 0.04);
-  --elevate-2: rgba(255, 255, 255, 0.09);
+  --elevate-1: rgba(255, 255, 255, .04);
+  --elevate-2: rgba(255, 255, 255, .09);
 
-  --background: 240 7% 4%;
-  --foreground: 0 0% 98%;
+  --background: 224 55% 9.6%;       /* ink-900 #0B1226 */
+  --foreground: 150 12% 96.9%;      /* #F6F8F7 */
 
-  --border: 240 5% 16%;
-  --input: 240 5% 20%;
+  --border: 223 37% 22.5%;          /* ink-700 #24304F */
+  --input: 223 37% 22.5%;
 
-  --card: 240 5% 10%;
-  --card-foreground: 0 0% 98%;
-  --card-border: 240 5% 16%;
+  --card: 221 52% 13.1%;            /* ink-850 #101B33 */
+  --card-foreground: 150 12% 96.9%;
+  --card-border: 223 37% 22.5%;
 
-  --sidebar: 240 5% 7%;
-  --sidebar-foreground: 0 0% 98%;
-  --sidebar-border: 240 5% 16%;
+  --sidebar: 221 52% 13.1%;
+  --sidebar-foreground: 222 24% 80.0%;
+  --sidebar-border: 223 37% 22.5%;
 
-  --sidebar-primary: 239 84% 67%;
-  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-primary: 54 100% 50.0%;
+  --sidebar-primary-foreground: 221 52% 13.1%;
 
-  --sidebar-accent: 240 4% 14%;
-  --sidebar-accent-foreground: 0 0% 98%;
+  --sidebar-accent: 221 48% 16.7%;
+  --sidebar-accent-foreground: 150 12% 96.9%;
 
-  --sidebar-ring: 239 84% 67%;
+  --sidebar-ring: 175 77% 39.6%;
 
-  --popover: 240 5% 10%;
-  --popover-foreground: 0 0% 98%;
-  --popover-border: 240 5% 16%;
+  --popover: 221 52% 13.1%;
+  --popover-foreground: 150 12% 96.9%;
+  --popover-border: 223 37% 22.5%;
 
-  --primary: 239 84% 67%;
-  --primary-foreground: 0 0% 98%;
+  /* sur sombre, bold × neutral remonte d'un cran : fond clair, texte encre */
+  --primary: 150 12% 96.9%;
+  --primary-foreground: 221 52% 13.1%;
 
-  --secondary: 240 5% 12%;
-  --secondary-foreground: 240 5% 65%;
+  --secondary: 221 48% 16.7%;
+  --secondary-foreground: 222 24% 80.0%;
 
-  --muted: 240 4% 14%;
-  --muted-foreground: 240 4% 46%;
+  --muted: 221 48% 16.7%;
+  --muted-foreground: 222 25% 69.2%;   /* ink-300 #9DA9C4 */
 
-  --accent: 240 5% 14%;
-  --accent-foreground: 0 0% 98%;
+  --accent: 223 37% 22.5%;
+  --accent-foreground: 150 12% 96.9%;
 
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive: 358 75% 59.0%;
+  --destructive-foreground: 0 0% 100.0%;
 
-  --ring: 239 84% 67%;
-  --chart-1: 239 84% 67%;
-  --chart-2: 142 71% 45%;
-  --chart-3: 38 92% 50%;
-  --chart-4: 330 81% 60%;
-  --chart-5: 188 94% 43%;
+  --ring: 175 77% 39.6%;
 
-  --shadow-2xs: 0px 1px 2px 0px hsl(220 13% 3% / 0.3);
-  --shadow-xs: 0px 1px 2px 0px hsl(220 13% 3% / 0.4);
-  --shadow-sm: 0px 1px 2px 0px hsl(220 13% 3% / 0.3), 0px 1px 3px 0px hsl(220 13% 3% / 0.4);
-  --shadow: 0px 1px 3px 0px hsl(220 13% 3% / 0.5), 0px 1px 2px -1px hsl(220 13% 3% / 0.5);
-  --shadow-md: 0px 4px 6px -1px hsl(220 13% 3% / 0.5), 0px 2px 4px -2px hsl(220 13% 3% / 0.5);
-  --shadow-lg: 0px 10px 15px -3px hsl(220 13% 3% / 0.5), 0px 4px 6px -4px hsl(220 13% 3% / 0.5);
-  --shadow-xl: 0px 20px 25px -5px hsl(220 13% 3% / 0.5), 0px 8px 10px -6px hsl(220 13% 3% / 0.5);
-  --shadow-2xl: 0px 25px 50px -12px hsl(220 13% 3% / 0.7);
+  --chart-1: 175 77% 39.6%;         /* mint-500  */
+  --chart-2: 150 12% 96.9%;         /* #F6F8F7   */
+  --chart-3: 54 100% 50.0%;         /* yellow-500 */
+  --chart-4: 222 25% 69.2%;         /* ink-300   */
+  --chart-5: 173 52% 55.5%;         /* mint-400  */
+
+  --shadow-2xs: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow: 0 12px 22px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 12px 22px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 22px 36px rgba(0, 0, 0, 0.38);
+  --shadow-xl: 0 22px 36px rgba(0, 0, 0, 0.38);
+  --shadow-2xl: 0 40px 90px rgba(0, 0, 0, 0.55);
 
   /* Automatically computed borders - intensity can be controlled by the user by the --opaque-button-border-intensity setting */
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
@@ -213,6 +214,7 @@
   --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
+
 
 /* Modern Scrollbar Styling - Dark Mode */
 .dark * {
@@ -247,16 +249,39 @@
     @apply border-border;
   }
 
+  /* 1rem = 15px : le corps de texte R0. Toute l'échelle Tailwind s'aligne
+     dessus (text-sm ≈ 13,5px, text-base = 15px). */
   html {
-    font-size: 84%;
+    font-size: 93.75%;
   }
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-weight: 500;          /* le 400 est trop léger sur les fonds clairs */
+    line-height: 1.6;
   }
 
   .dark body {
     background-color: var(--bg-base);
+  }
+
+  /* Titres : bloc compact, 800, interlettrage négatif. */
+  h1, h2, h3, h4 {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.0;
+  }
+
+  /* La donnée est toujours en mono, zéro barré et chiffres tabulaires. */
+  .font-mono,
+  code, kbd, samp, pre {
+    font-feature-settings: var(--ro-font-feature-data);
+  }
+
+  /* Anneau de focus menthe, identique pour tous les intents et les deux registres. */
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--ro-focus-ring);
   }
 }
 
@@ -410,12 +435,13 @@
     inset: -1px;
   }
 
+  /* Titre de page R0 : 800, bloc compact, interlettrage -0.03em. */
   .page-heading {
-    @apply text-xl font-bold tracking-[-0.03em] text-foreground sm:text-2xl;
+    @apply text-2xl font-extrabold tracking-[-0.03em] leading-[0.98] text-foreground sm:text-3xl;
   }
 
   .code-pill {
-    @apply inline-flex max-w-full items-center truncate rounded-md border px-2 py-0.5 font-mono text-xs font-medium tabular-nums text-foreground transition-colors;
+    @apply inline-flex max-w-full items-center truncate rounded-full border px-2.5 py-0.5 font-mono text-xs font-medium tabular-nums text-foreground transition-colors;
     border-color: var(--enterprise-border, hsl(var(--border)));
     background-color: var(--bg-hover, hsl(var(--muted)));
   }
@@ -455,7 +481,124 @@
     animation: table-row-enter 0.4s ease both;
   }
 
+  /* En-tête de tableau = overline R0 : mono, 10,5px, 0.10em, 700. */
   .table-head-enterprise {
-    @apply h-12 px-4 text-left align-middle text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground;
+    @apply h-12 px-4 text-left align-middle font-mono text-[10.5px] font-bold uppercase tracking-[0.10em] text-muted-foreground;
   }
+}
+/* ==========================================================================
+   R0 — motifs signature et raccourcis d'écriture.
+   ========================================================================== */
+@layer components {
+  /* --- la donnée -----------------------------------------------------------
+     Montants, quantités, horodatages, références. Mono, zéro barré, tabulaire. */
+  .ro-data {
+    font-family: var(--ro-font-data);
+    font-feature-settings: var(--ro-font-feature-data);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* Le chiffre qui porte la phrase : gros, encre, mono. */
+  .ro-figure {
+    font-family: var(--ro-font-data);
+    font-feature-settings: var(--ro-font-feature-data);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: var(--ro-text-high);
+  }
+
+  /* --- overline : 12px / 0.14em / uppercase / mono ------------------------- */
+  .ro-overline {
+    font-family: var(--ro-font-data);
+    font-feature-settings: var(--ro-font-feature-data);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ro-text-medium);
+  }
+
+  /* --- badge : un seul mot, 10,5px / 0.10em / mono ------------------------- */
+  .ro-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: var(--ro-radius-pill);
+    padding: 2px 10px;
+    font-family: var(--ro-font-data);
+    font-feature-settings: var(--ro-font-feature-data);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .ro-badge-success { background: var(--ro-feedback-success-bg); border-color: var(--ro-feedback-success-bd); color: var(--ro-feedback-success-fg); }
+  .ro-badge-warning { background: var(--ro-feedback-warning-bg); border-color: var(--ro-feedback-warning-bd); color: var(--ro-feedback-warning-fg); }
+  .ro-badge-error   { background: var(--ro-feedback-error-bg);   border-color: var(--ro-feedback-error-bd);   color: var(--ro-feedback-error-fg); }
+  .ro-badge-info    { background: var(--ro-feedback-info-bg);    border-color: var(--ro-feedback-info-bd);    color: var(--ro-feedback-info-fg); }
+  .ro-badge-brand   { background: var(--ro-yellow-500); color: var(--ro-text-on-brand); }
+
+  /* --- carte R0 : radius 20, bordure 1px, ombre encre --------------------- */
+  .ro-card {
+    background: var(--ro-level-00);
+    border: var(--ro-card-border) solid var(--ro-border-medium);
+    border-radius: var(--ro-card-radius);
+    box-shadow: var(--ro-shadow-card);
+  }
+  /* Variante featured : bordure 2px menthe. */
+  .ro-card-featured { border-width: 2px; border-color: var(--ro-mint-500); }
+  /* Variante encre : la carte devient une section sombre. */
+  .ro-card-ink { background: var(--ro-ink-850); border-color: var(--ro-ink-700); color: var(--ro-gray-50); }
+
+  /* Survol d'une carte cliquable : remontée de 5px + ombre raised, 0.35s. */
+  .ro-lift {
+    transition: transform var(--ro-duration-base) var(--ro-ease),
+                box-shadow var(--ro-duration-base) var(--ro-ease),
+                border-color var(--ro-duration-fast) var(--ro-ease);
+  }
+  .ro-lift:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--ro-shadow-raised);
+  }
+
+  /* Appui : le seul retour tactile du système, identique partout. */
+  .ro-press { transition: transform var(--ro-duration-fast) var(--ro-ease); }
+  .ro-press:active { transform: scale(var(--ro-pressed-scale)); }
+
+  /* --- la trame pointillée jaune : sur surfaces encre UNIQUEMENT ---------- */
+  .ro-dots {
+    background-image: var(--ro-dots-ink);
+    background-size: var(--ro-dots-size);
+  }
+
+  /* --- le ticket : filet 1.5px dashed, montants en mono ------------------- */
+  .ro-ticket {
+    background: var(--ro-level-00);
+    border-radius: var(--ro-ticket-radius);
+    padding: var(--ro-ticket-padding);
+    filter: drop-shadow(0 12px 22px rgba(16, 27, 51, 0.08));
+  }
+  .ro-ticket-divider { border-top: var(--ro-ticket-divider) var(--ro-border-medium); }
+
+  /* --- le surlignage tourné : UN SEUL par titre --------------------------- */
+  .ro-highlight {
+    display: inline-block;
+    background: var(--ro-mint-100);
+    border-radius: var(--ro-radius-sm);
+    padding: 0 8px;
+    transform: rotate(-1.5deg);
+  }
+  /* Jaune quand le mot parle d'argent. */
+  .ro-highlight-brand { background: var(--ro-yellow-200); }
+
+  /* --- reveal de section : 0.8s, +32px, cascade 130ms --------------------- */
+  @keyframes ro-reveal {
+    from { opacity: 0; transform: translateY(var(--ro-reveal-offset)); }
+    to   { opacity: 1; transform: none; }
+  }
+  .ro-reveal { animation: ro-reveal var(--ro-duration-reveal) var(--ro-ease) both; }
 }

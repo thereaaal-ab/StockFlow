@@ -73,7 +73,8 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+      // En-tête = overline R0 : mono, 10,5px, 0.10em, 700, uppercase.
+      "h-12 px-4 text-left align-middle font-mono text-[10.5px] font-bold uppercase tracking-label text-muted-foreground [&:has([role=checkbox])]:pr-0",
       className
     )}
     {...props}
@@ -87,7 +88,11 @@ const TableCell = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
+    // Les chiffres d'une colonne doivent s'aligner d'une ligne à l'autre.
+    className={cn(
+      "p-4 align-middle text-sm tabular-nums [&:has([role=checkbox])]:pr-0",
+      className
+    )}
     {...props}
   />
 ))

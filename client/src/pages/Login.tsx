@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Chrome } from "lucide-react";
 
+/**
+ * Écran d'arrivée — registre encre + trame pointillée jaune, le motif de
+ * marque R0. Le titre est un bloc compact en 800, la promesse est chiffrée,
+ * et le seul `bold` de l'écran est le bouton de connexion.
+ */
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const { signInWithGoogle } = useAuth();
@@ -28,43 +32,76 @@ export default function Login() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
-      <div
-        className="pointer-events-none absolute inset-0 opacity-40 dark:opacity-60"
-        aria-hidden
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 50% at 50% -20%, hsl(239 84% 67% / 0.35), transparent 55%), radial-gradient(ellipse 60% 40% at 100% 0%, hsl(188 94% 43% / 0.12), transparent)",
-        }}
-      />
-      <Card className="relative z-[1] w-full max-w-md border-border/80 shadow-xl">
-        <CardHeader className="space-y-2 pb-2 text-center">
-          <div className="mx-auto mb-1 flex size-11 items-center justify-center rounded-xl bg-primary/15 text-sm font-bold text-primary ring-1 ring-primary/20">
-            IP
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-ink-900 p-4">
+      {/* Trame pointillée jaune — sur surfaces encre uniquement. */}
+      <div className="ro-dots pointer-events-none absolute inset-0" aria-hidden />
+
+      <div className="relative z-[1] w-full max-w-[440px] animate-ro-reveal">
+        <div className="rounded-3xl border border-ink-700 bg-ink-850 p-8 shadow-overlay sm:p-10">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-500 font-mono text-base font-extrabold text-ink-850"
+              style={{ fontFeatureSettings: "'zero' 1" }}
+              aria-hidden
+            >
+              R0
+            </div>
+            <div className="ro-overline text-[11px] text-ink-400">
+              Inventaire · Rushorder
+            </div>
           </div>
-          <CardTitle className="page-heading">
-            Inventaire Pro
-          </CardTitle>
-          <CardDescription className="text-sm">
-            Connectez-vous pour accéder à votre tableau de bord
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-2">
+
+          <h1 className="mt-7 text-[36px] font-extrabold leading-[0.95] tracking-display text-[#F6F8F7] sm:text-[42px]">
+            Votre matériel,
+            <br />
+            <span className="ro-highlight text-ink-850">tout entier</span> dans
+            un système.
+          </h1>
+
+          <p className="mt-4 text-[15px] leading-relaxed text-ink-300">
+            Stock, clients, commandes et marges — une seule donnée, mise à jour
+            en direct. Connectez-vous pour reprendre là où vous en étiez.
+          </p>
+
           <Button
             type="button"
-            className="h-11 w-full rounded-lg text-base font-medium shadow-sm"
-            variant="default"
+            variant="brand"
+            size="lg"
+            className="mt-8 w-full"
             onClick={handleGoogleSignIn}
             disabled={isLoading}
+            data-testid="button-google-signin"
           >
-            <Chrome className="mr-2 h-5 w-5" />
-            {isLoading ? "Connexion..." : "Continuer avec Google"}
+            <Chrome />
+            {isLoading ? "Connexion…" : "Continuer avec Google"}
           </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            En vous connectant, vous acceptez nos conditions d&apos;utilisation
+
+          <p className="mt-5 text-center text-[13px] text-ink-500">
+            En vous connectant, vous acceptez nos conditions d&apos;utilisation.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Le chiffre porte la phrase : trois repères, en mono. */}
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          {[
+            { k: "0 %", v: "commission" },
+            { k: "1 ×", v: "saisie" },
+            { k: "24/7", v: "à jour" },
+          ].map((s) => (
+            <div
+              key={s.v}
+              className="rounded-lg border border-ink-700 bg-ink-850/60 px-3 py-3 text-center"
+            >
+              <div className="ro-data text-lg font-bold text-brand-500">
+                {s.k}
+              </div>
+              <div className="ro-overline mt-1 text-[9px] text-ink-400">
+                {s.v}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
