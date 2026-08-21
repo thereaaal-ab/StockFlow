@@ -4,10 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Users, Package, Euro, Calendar, Edit, Trash2 } from "lucide-react";
 import {
   formatCurrencyCompact,
-  calculateProfitableDate,
 } from "@/lib/utils";
 import {
-  calculateClientMetrics,
   calculateTotalMonthlyFeeFromProducts,
   calculateClientEconomics,
 } from "@/lib/clientCalculations";
@@ -55,7 +53,6 @@ export function ClientCard({
       .map((p) => p.id)
   );
 
-  const metrics = calculateClientMetrics(client, products);
   // Même calcul que la fiche : la pastille de la carte et le détail ne
   // doivent jamais dire l'inverse l'un de l'autre.
   const eco = calculateClientEconomics(client, { serviceProductIds });
@@ -94,10 +91,10 @@ export function ClientCard({
           <div className="space-y-1">
             <div className="ro-overline flex items-center gap-2 text-[10px]">
               <Euro className="size-3.5 shrink-0" />
-              <span>Installation</span>
+              <span>Encaissé au départ</span>
             </div>
             <p className="ro-figure text-lg">
-              {formatCurrencyCompact(metrics.installation_costs)}
+              {formatCurrencyCompact(eco.initialPayment + eco.equipmentBilled)}
             </p>
           </div>
           <div className="space-y-1">
@@ -111,20 +108,28 @@ export function ClientCard({
           </div>
         </div>
 
+        {/* Le net du premier mois : tout ce qui rentre, moins le seul vrai
+            investissement — le matériel qui reste à nous. Même calcul que la
+            fiche : deux chiffres qui se contredisent sur la même carte, c'est
+            ce qui rendait la lecture impossible. */}
         <div className="rounded-md bg-muted px-4 py-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="ro-overline text-[10px]">Flux net</span>
+            <span className="ro-overline text-[10px]">Net premier mois</span>
             <p
               className={cn(
                 "ro-figure text-xl",
-                metrics.net_cash_flow >= 0 ? "text-status-success" : "text-status-error"
+                eco.firstMonth - eco.leaseCost >= 0
+                  ? "text-status-success"
+                  : "text-status-error"
               )}
             >
-              {metrics.net_cash_flow >= 0 ? "+" : ""}
-              {formatCurrencyCompact(metrics.net_cash_flow)}
+              {eco.firstMonth - eco.leaseCost >= 0 ? "+" : ""}
+              {formatCurrencyCompact(eco.firstMonth - eco.leaseCost)}
             </p>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">Revenus − coûts</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Encaissé − matériel en leasing
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-4">
@@ -141,12 +146,16 @@ export function ClientCard({
               <span>Rentabilité</span>
             </div>
             <p className="ro-data text-sm font-bold text-foreground">
-              {metrics.profitability_date ||
-                calculateProfitableDate(
-                  client.contract_start_date,
-                  client.months_left
-                ) ||
-                `${client.months_left} ${client.months_left === 1 ? "mois" : "mois"}`}
+              {eco.toCover === 0
+                ? "1er mois"
+                : eco.breakEvenDate
+                  ? eco.breakEvenDate.toLocaleDateString("fr-FR", {
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : eco.monthsToCover !== null
+                    ? `${eco.monthsToCover} mois`
+                    : "—"}
             </p>
           </div>
         </div>

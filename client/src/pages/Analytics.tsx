@@ -24,7 +24,11 @@ import { useClients } from "@/hooks/useClients";
 import { useCategories } from "@/hooks/useCategories";
 import { useMemo, useState } from "react";
 import { formatCurrencyCompact, formatCurrencyFull } from "@/lib/utils";
-import { diffInMonths, calculateClientMetrics } from "@/lib/clientCalculations";
+import {
+  diffInMonths,
+  calculateClientMetrics,
+  calculateClientEconomics,
+} from "@/lib/clientCalculations";
 import { useChartPalette } from "@/lib/chartPalette";
 
 
@@ -177,20 +181,37 @@ export default function Analytics() {
     });
   }, [clients, selectedCategory, productMap]);
 
-  // Client value data - filtered by category
-  // Shows installation costs (negative) vs collected revenue (positive)
+  /**
+   * Ce qu'on a investi chez chaque client, en face de ce qu'on a encaissé.
+   *
+   * L'investissement, c'est le matériel en leasing : lui seul reste à nous.
+   * `installation_costs` ne convient pas — elle retient le prix facturé pour
+   * les lignes achetées, donc elle mesurait ce que le client paie tout en
+   * étant présentée comme une dépense.
+   */
   const clientValueData = useMemo(() => {
+    const serviceCats = new Set(
+      categories
+        .filter((c) => c.name.toLowerCase().startsWith("service"))
+        .map((c) => c.id)
+    );
+    const serviceProductIds = new Set(
+      products
+        .filter((p) => p.category_id && serviceCats.has(p.category_id))
+        .map((p) => p.id)
+    );
+
     return filteredClients.map((client) => {
-      // Calculate metrics using the new cash flow logic
       const metrics = calculateClientMetrics(client, products);
-      
+      const eco = calculateClientEconomics(client, { serviceProductIds });
+
       return {
         name: client.client_name,
-        installation: metrics.installation_costs, // Negative: what we spent
-        collected: metrics.total_revenue, // Positive: what we collected
+        installation: eco.leaseCost,          // ce qu'on a immobilisé
+        collected: metrics.total_revenue,     // ce qu'on a encaissé
       };
     });
-  }, [filteredClients, products]);
+  }, [filteredClients, products, categories]);
 
   // Hardware distribution by category - percentage based
   const hardwareDistribution = useMemo(() => {

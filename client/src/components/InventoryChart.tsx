@@ -85,14 +85,14 @@ export function InventoryChart({
                   dataKey="installation"
                   fill={ACCENT_BAR}
                   radius={[4, 4, 0, 0]}
-                  name="Installation"
+                  name="Investi (leasing)"
                   maxBarSize={48}
                 />
                 <Bar
                   dataKey="collected"
                   fill={SECOND_BAR}
                   radius={[4, 4, 0, 0]}
-                  name="Revenu Collecté"
+                  name="Encaissé"
                   maxBarSize={48}
                 />
               </>
