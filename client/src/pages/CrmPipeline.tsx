@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import {
 } from "@/hooks/usePipelineClients";
 import { ClientModal } from "@/components/crm/ClientModal";
 import { QuoteEditor } from "@/components/crm/QuoteEditor";
+import { QuoteImportDialog } from "@/components/crm/QuoteImportDialog";
 
 const STATUS_LABELS: Record<ClientStatus, string> = {
   prospect: "Prospect",
@@ -35,6 +36,7 @@ export default function CrmPipeline() {
   } = usePipelineClients();
   const [draggedClientId, setDraggedClientId] = useState<string | null>(null);
   const [quoteProspect, setQuoteProspect] = useState<PipelineClient | undefined>(undefined);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<PipelineClient | undefined>(undefined);
 
@@ -97,10 +99,18 @@ export default function CrmPipeline() {
             Suivi commercial visuel, du prospect jusqu'à la validation.
           </p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nouveau client
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* L'import du devis est l'entrée principale : c'est le geste qui
+              crée le prospect, son devis et tout ce qui va avec. */}
+          <Button variant="outline" onClick={() => setIsImportOpen(true)} data-testid="button-import-quote">
+            <Upload className="mr-2 h-4 w-4" />
+            Importer un devis
+          </Button>
+          <Button onClick={() => setIsCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nouveau client
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -194,6 +204,8 @@ export default function CrmPipeline() {
           ))}
         </div>
       )}
+
+      <QuoteImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
 
       <QuoteEditor
         prospect={quoteProspect ?? null}

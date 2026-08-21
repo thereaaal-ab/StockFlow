@@ -445,3 +445,216 @@ export function useAcceptQuote() {
     isAccepting: mutation.isPending,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Import d'un devis PDF
+// ---------------------------------------------------------------------------
+
+/** La mémoire des rapprochements faits à la main. */
+export function useQuoteAliases() {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["quote_line_aliases"],
+    retry: false,
+    queryFn: async (): Promise<Record<string, string | null>> => {
+      const { data, error } = await supabase
+        .from("quote_line_aliases")
+        .select("normalized, product_id");
+      if (error) throw new Error(error.message);
+      return Object.fromEntries(
+        (data || []).map((r: any) => [r.normalized, r.product_id])
+      );
+    },
+  });
+
+  const remember = useMutation({
+    mutationFn: async (input: {
+      normalized: string;
+      label: string;
+      productId: string | null;
+    }) => {
+      const { error } = await supabase.from("quote_line_aliases").upsert(
+        {
+          normalized: input.normalized,
+          label: input.label,
+          product_id: input.productId,
+        },
+        { onConflict: "normalized" }
+      );
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["quote_line_aliases"] }),
+  });
+
+  return {
+    aliases: query.data ?? {},
+    rememberAlias: remember.mutateAsync,
+  };
+}
+
+export interface ImportLineInput {
+  block: QuoteBlock;
+  description: string;
+  productId: string | null;
+  quantity: number;
+  unitPrice: number;
+  discountPct: number;
+  discountNote: string | null;
+}
+
+export interface ImportQuoteInput {
+  crmClientId: string;
+  quoteNumber: string | null;
+  clientName: string;
+  mode: QuoteMode;
+  issuedOn: string | null;
+  validUntil: string | null;
+  sourceFile: string | null;
+  lines: ImportLineInput[];
+}
+
+/**
+ * Crée le devis à partir du PDF, ou met à jour celui qui porte déjà ce numéro.
+ *
+ * Réimporter le même fichier est un geste normal — on corrige une remise, on
+ * ajoute une ligne, on ré-exporte. Le numéro de devis sert de clé : au lieu de
+ * créer un doublon, on remplace les lignes.
+ *
+ * Deux précautions :
+ *  · un devis déjà ACCEPTÉ refuse la réimportation, parce qu'un client a été
+ *    créé à partir de lui et que remplacer ses lignes le désynchroniserait ;
+ *  · les machines déjà réservées sont conservées pour les lignes qui
+ *    subsistent, et rendues au stock pour celles qui disparaissent.
+ */
+export function useImportQuote() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async (input: ImportQuoteInput) => {
+      let existing: any = null;
+      if (input.quoteNumber) {
+        const { data } = await supabase
+          .from("quotes")
+          .select("*")
+          .eq("quote_number", input.quoteNumber)
+          .maybeSingle();
+        existing = data;
+      }
+
+      if (existing?.status === "accepte") {
+        throw new Error(
+          `Le devis ${input.quoteNumber} a déjà été accepté et converti en client. Il ne peut plus être réimporté.`
+        );
+      }
+
+      let quoteId: string;
+      let replaced = false;
+
+      if (existing) {
+        replaced = true;
+        quoteId = existing.id;
+
+        // Ce qui était réservé, ligne par ligne, avant de tout remplacer.
+        const { data: oldLines } = await supabase
+          .from("quote_lines")
+          .select("description, block, quote_line_units(unit_id)")
+          .eq("quote_id", quoteId);
+
+        const previous = new Map<string, string[]>();
+        for (const l of oldLines || []) {
+          const ids = ((l as any).quote_line_units || []).map(
+            (u: any) => u.unit_id
+          );
+          if (ids.length) previous.set(`${l.block}|${l.description}`, ids);
+        }
+
+        // Les réservations partent avec les lignes ; on les rétablira sur
+        // les lignes qui reviennent à l'identique.
+        await supabase.rpc("release_quote_units", { p_quote_id: quoteId });
+        await supabase.from("quote_lines").delete().eq("quote_id", quoteId);
+
+        await supabase
+          .from("quotes")
+          .update({
+            client_name: input.clientName,
+            mode: input.mode,
+            issued_on: input.issuedOn || existing.issued_on,
+            valid_until: input.validUntil,
+            source_file: input.sourceFile,
+          })
+          .eq("id", quoteId);
+
+        await insertLines(quoteId, input.lines, previous);
+      } else {
+        const { data: created, error } = await supabase
+          .from("quotes")
+          .insert({
+            crm_client_id: input.crmClientId,
+            quote_number: input.quoteNumber,
+            client_name: input.clientName,
+            mode: input.mode,
+            issued_on: input.issuedOn || new Date().toISOString().slice(0, 10),
+            valid_until: input.validUntil,
+            source_file: input.sourceFile,
+          })
+          .select("*")
+          .single();
+        if (error) throw new Error(error.message);
+        quoteId = created.id;
+        await insertLines(quoteId, input.lines);
+      }
+
+      return { quoteId, replaced };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quote"] });
+      queryClient.invalidateQueries({ queryKey: ["quote_lines"] });
+      queryClient.invalidateQueries({ queryKey: ["available_hardware_units"] });
+      queryClient.invalidateQueries({ queryKey: ["hardware_summary"] });
+    },
+  });
+
+  return {
+    importQuote: mutation.mutateAsync,
+    isImporting: mutation.isPending,
+  };
+}
+
+/** Insère les lignes et rétablit les réservations des lignes inchangées. */
+async function insertLines(
+  quoteId: string,
+  lines: ImportLineInput[],
+  previous?: Map<string, string[]>
+) {
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    const { data, error } = await supabase
+      .from("quote_lines")
+      .insert({
+        quote_id: quoteId,
+        block: l.block,
+        description: l.description,
+        product_id: l.productId,
+        quantity: l.quantity,
+        unit_price: l.unitPrice,
+        discount_pct: l.discountPct,
+        discount_note: l.discountNote,
+        position: i,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+
+    const kept = previous?.get(`${l.block}|${l.description}`);
+    if (kept?.length) {
+      // Jamais plus de machines que la nouvelle quantité : si la ligne est
+      // passée de 3 à 2, la troisième retourne au stock.
+      await supabase.rpc("reserve_quote_units", {
+        p_line_id: data.id,
+        p_unit_ids: kept.slice(0, l.quantity),
+      });
+    }
+  }
+}
