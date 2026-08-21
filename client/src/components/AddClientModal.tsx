@@ -172,8 +172,18 @@ export function AddClientModal() {
             monthlyFeeDisplay: "",
             stockActuel: product.stock_actuel ?? product.quantity ?? 0,
             purchasePrice: product.purchase_price,
-            sellingPrice: product.purchase_price, // Default to purchase price
-            sellingPriceDisplay: product.purchase_price > 0 ? product.purchase_price.toString() : "", // Pre-fill with purchase price
+            // Le prix de vente du catalogue, pas le prix d'achat : pré-remplir
+            // avec ce qu'on a payé fait enregistrer une revente à prix coûtant
+            // dès qu'on ne modifie pas le champ — ce qui est arrivé sur trois
+            // clients. On retombe sur le prix d'achat seulement s'il n'y a pas
+            // de prix de vente au catalogue.
+            sellingPrice: product.selling_price || product.purchase_price,
+            sellingPriceDisplay:
+              product.selling_price > 0
+                ? product.selling_price.toString()
+                : product.purchase_price > 0
+                  ? product.purchase_price.toString()
+                  : "",
             rentPrice: rentPrice,
             type: "buy", // Default to buy
           };
@@ -736,17 +746,26 @@ export function AddClientModal() {
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                value={detail.sellingPriceDisplay ?? (detail.sellingPrice > 0 ? detail.sellingPrice.toString() : product.purchase_price.toString())}
+                                value={detail.sellingPriceDisplay ?? (detail.sellingPrice > 0 ? detail.sellingPrice.toString() : (product.selling_price || product.purchase_price).toString())}
                                 onChange={(e) =>
                                     handleSellingPriceChange(product.id, e.target.value)
                                 }
                                 disabled={isSaving}
-                                placeholder={product.purchase_price.toFixed(2)}
+                                placeholder={(product.selling_price || product.purchase_price).toFixed(2)}
                               />
+                              {/* La marge est dite ici : une revente à prix
+                                  coûtant doit se voir au moment où on la saisit,
+                                  pas se découvrir des mois plus tard. */}
                               <p className="text-xs text-muted-foreground">
-                                {detail.sellingPrice && detail.sellingPrice !== product.purchase_price
-                                  ? `Personnalisé: ${detail.sellingPrice.toFixed(2)}€ (défaut: ${product.purchase_price.toFixed(2)}€)`
-                                  : `Par défaut: ${product.purchase_price.toFixed(2)}€ (prix d'achat)`}
+                                {(() => {
+                                  const vente = detail.sellingPrice || 0;
+                                  const achat = product.purchase_price || 0;
+                                  const marge = vente - achat;
+                                  if (vente <= 0) return `Prix d'achat : ${achat.toFixed(2)} €`;
+                                  if (Math.abs(marge) < 0.01)
+                                    return `Revendu à prix coûtant (${achat.toFixed(2)} €) — aucune marge`;
+                                  return `Marge : ${marge >= 0 ? "+" : ""}${marge.toFixed(2)} € · payé ${achat.toFixed(2)} €`;
+                                })()}
                               </p>
                             </div>
                           )}
