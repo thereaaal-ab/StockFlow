@@ -449,6 +449,18 @@ export function ClientHardwarePanel({
               Aucun matériel en leasing chez ce client : il n&apos;y a rien à
               rembourser, tout ce qui rentre est du gain.
             </p>
+          ) : eco.isPaidBack && eco.monthsElapsed > 0 ? (
+            <p className="text-sm">
+              <span className="ro-data font-bold text-status-success">
+                Remboursé.
+              </span>{" "}
+              {eco.monthsElapsed} mois écoulés, {formatCurrencyFull(eco.collectedToDate)}{" "}
+              encaissés contre {formatCurrencyFull(leaseCost)} de matériel — soit{" "}
+              <span className="ro-data font-bold text-status-success">
+                +{formatCurrencyFull(eco.netToDate)}
+              </span>{" "}
+              à ce jour.
+            </p>
           ) : toCover === 0 ? (
             <p className="text-sm">
               <span className="ro-data font-bold text-status-success">

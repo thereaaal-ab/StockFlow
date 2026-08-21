@@ -165,8 +165,8 @@ export function ClientDetailsModal({
                       <span>Date de Rentabilité</span>
                     </div>
                     <p className="text-xl font-bold text-primary">
-                      {eco.toCover === 0
-                        ? "Dès le premier mois"
+                      {eco.isPaidBack
+                        ? "Remboursé"
                         : eco.breakEvenDate
                           ? eco.breakEvenDate.toLocaleDateString("fr-FR", {
                               month: "long",
@@ -262,13 +262,13 @@ export function ClientDetailsModal({
                     <Badge
                       variant="outline"
                       className={
-                        eco.toCover === 0 ? "ro-badge-success" : "ro-badge-warning"
+                        eco.isPaidBack ? "ro-badge-success" : "ro-badge-warning"
                       }
                     >
                       {/* Même source que la date juste au-dessus : un badge
                           qui contredit la date qu'il accompagne est pire
                           qu'aucun badge. */}
-                      {eco.toCover === 0 ? "Rentable" : "À couvrir"}
+                      {eco.isPaidBack ? "Rentable" : "À couvrir"}
                     </Badge>
                   </div>
                   {client.contract_start_date && (

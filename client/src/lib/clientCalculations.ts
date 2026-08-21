@@ -449,6 +449,23 @@ export interface ClientEconomics {
   monthsToCover: number | null;
   /** Date à laquelle l'investissement est couvert, si elle est calculable. */
   breakEvenDate: Date | null;
+
+  /** Mois pleins écoulés depuis le début du contrat. */
+  monthsElapsed: number;
+  /** Tout ce qui est rentré à ce jour : one-shot, marge, et les mensualités. */
+  collectedToDate: number;
+  /** Encaissé à ce jour moins l'investissement. */
+  netToDate: number;
+  /**
+   * Vrai quand l'investissement est déjà couvert.
+   *
+   * Se juge sur le temps écoulé, pas sur le seul premier mois : un contrat
+   * signé il y a un an et remboursé en deux mois est rentable aujourd'hui,
+   * même si son premier mois était négatif.
+   */
+  isPaidBack: boolean;
+  /** Ce qu'il reste réellement à couvrir aujourd'hui. */
+  remainingToday: number;
 }
 
 export function calculateClientEconomics(
@@ -505,6 +522,19 @@ export function calculateClientEconomics(
     breakEvenDate = d;
   }
 
+  // Le temps écoulé compte : les mensualités déjà encaissées ont couvert
+  // une partie — ou la totalité — de l'investissement.
+  const monthsElapsed = client.contract_start_date
+    ? Math.max(0, diffInMonths(new Date(client.contract_start_date), new Date()))
+    : 0;
+
+  // Le premier mois contient déjà une mensualité, d'où le +1.
+  const collectedToDate =
+    initialPayment + equipmentMargin + (monthsElapsed + 1) * monthlyFee;
+  const netToDate = collectedToDate - leaseCost;
+  const isPaidBack = netToDate >= 0;
+  const remainingToday = Math.max(0, -netToDate);
+
   return {
     initialPayment,
     equipmentBilled,
@@ -517,5 +547,10 @@ export function calculateClientEconomics(
     toCover,
     monthsToCover,
     breakEvenDate,
+    monthsElapsed,
+    collectedToDate,
+    netToDate,
+    isPaidBack,
+    remainingToday,
   };
 }

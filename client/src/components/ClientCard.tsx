@@ -79,10 +79,10 @@ export function ClientCard({
           <span
             className={cn(
               "ro-badge shrink-0 py-1",
-              eco.toCover === 0 ? "ro-badge-success" : "ro-badge-warning"
+              eco.isPaidBack ? "ro-badge-success" : "ro-badge-warning"
             )}
           >
-            {eco.toCover === 0 ? "Rentable" : "À couvrir"}
+            {eco.isPaidBack ? "Rentable" : "À couvrir"}
           </span>
         </div>
       </CardHeader>
@@ -114,21 +114,19 @@ export function ClientCard({
             ce qui rendait la lecture impossible. */}
         <div className="rounded-md bg-muted px-4 py-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="ro-overline text-[10px]">Net premier mois</span>
+            <span className="ro-overline text-[10px]">Net à ce jour</span>
             <p
               className={cn(
                 "ro-figure text-xl",
-                eco.firstMonth - eco.leaseCost >= 0
-                  ? "text-status-success"
-                  : "text-status-error"
+                eco.netToDate >= 0 ? "text-status-success" : "text-status-error"
               )}
             >
-              {eco.firstMonth - eco.leaseCost >= 0 ? "+" : ""}
-              {formatCurrencyCompact(eco.firstMonth - eco.leaseCost)}
+              {eco.netToDate >= 0 ? "+" : ""}
+              {formatCurrencyCompact(eco.netToDate)}
             </p>
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Encaissé − matériel en leasing
+            Encaissé depuis le début − matériel en leasing
           </p>
         </div>
 
@@ -146,8 +144,10 @@ export function ClientCard({
               <span>Rentabilité</span>
             </div>
             <p className="ro-data text-sm font-bold text-foreground">
-              {eco.toCover === 0
-                ? "1er mois"
+              {/* Une date déjà passée ne se présente pas comme une échéance :
+                  le contrat est remboursé, on le dit. */}
+              {eco.isPaidBack
+                ? "Remboursé"
                 : eco.breakEvenDate
                   ? eco.breakEvenDate.toLocaleDateString("fr-FR", {
                       month: "short",
