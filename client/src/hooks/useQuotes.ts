@@ -68,6 +68,14 @@ export interface QuoteLine {
   discount_note: string | null;
   /** Machines réservées pour cette ligne, jointes à la lecture. */
   unit_ids: string[];
+  /**
+   * Les mêmes machines avec leur numéro et leur coût de lot.
+   *
+   * Indispensable : une machine réservée quitte `available_hardware_units`,
+   * donc son coût n'y est plus lisible. Sans cette jointure, le coût réel de
+   * l'installation retomberait à zéro dès qu'on coche une case.
+   */
+  units: Array<{ id: string; asset_tag: string; unit_cost: number }>;
 }
 
 const num = (v: unknown, fallback = 0) =>
@@ -104,6 +112,11 @@ function mapLine(row: any): QuoteLine {
     discount_pct: num(row.discount_pct),
     discount_note: row.discount_note ?? null,
     unit_ids: (row.quote_line_units ?? []).map((u: any) => u.unit_id),
+    units: (row.quote_line_units ?? []).map((u: any) => ({
+      id: u.unit_id,
+      asset_tag: u.hardware_units?.asset_tag ?? "",
+      unit_cost: num(u.hardware_units?.hardware_lots?.unit_cost, 0),
+    })),
   };
 }
 
@@ -167,7 +180,9 @@ export function useQuote(crmClientId?: string) {
     queryFn: async (): Promise<QuoteLine[]> => {
       const { data, error } = await supabase
         .from("quote_lines")
-        .select("*, quote_line_units(unit_id)")
+        .select(
+          "*, quote_line_units(unit_id, hardware_units(asset_tag, hardware_lots(unit_cost)))"
+        )
         .eq("quote_id", quoteId!)
         .order("block", { ascending: true })
         .order("position", { ascending: true });

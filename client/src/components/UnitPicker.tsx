@@ -10,6 +10,13 @@ interface UnitPickerProps {
   value: string[];
   onChange: (unitIds: string[]) => void;
   disabled?: boolean;
+  /**
+   * Machines déjà réservées pour cette ligne.
+   *
+   * Une machine réservée quitte le stock disponible : sans elle ici, la case
+   * cochée disparaîtrait de la liste et on ne pourrait plus la décocher.
+   */
+  reserved?: Array<{ id: string; asset_tag: string; unit_cost: number }>;
 }
 
 /**
@@ -27,8 +34,30 @@ export function UnitPicker({
   value,
   onChange,
   disabled = false,
+  reserved = [],
 }: UnitPickerProps) {
-  const { available, isLoading } = useAvailableUnits(productId);
+  const { available: inStock, isLoading } = useAvailableUnits(productId);
+
+  // Les réservées d'abord fusionnées, puis tout retrié par prix : la liste
+  // reste « la moins chère en tête » quel que soit ce qui est déjà coché.
+  const available = useMemo(() => {
+    const known = new Set(inStock.map((u) => u.id));
+    const extra = reserved
+      .filter((r) => !known.has(r.id))
+      .map((r) => ({
+        id: r.id,
+        product_id: productId,
+        lot_id: "",
+        asset_tag: r.asset_tag,
+        serial_number: null,
+        product_code: "",
+        product_name: "",
+        unit_cost: r.unit_cost,
+        received_at: "",
+        supplier: null,
+      }));
+    return [...inStock, ...extra].sort((a, b) => a.unit_cost - b.unit_cost);
+  }, [inStock, reserved, productId]);
 
   const picked = useMemo(() => new Set(value), [value]);
 
@@ -114,9 +143,11 @@ export function UnitPicker({
                 <span className="ro-data block text-sm font-bold text-foreground">
                   {formatCurrencyFull(unit.unit_cost)}
                 </span>
-                <span className="ro-data block text-[10px] text-muted-foreground">
-                  reçue le {unit.received_at}
-                </span>
+                {unit.received_at && (
+                  <span className="ro-data block text-[10px] text-muted-foreground">
+                    reçue le {unit.received_at}
+                  </span>
+                )}
               </span>
             </label>
           );

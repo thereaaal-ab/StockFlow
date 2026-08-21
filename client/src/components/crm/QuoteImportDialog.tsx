@@ -150,6 +150,10 @@ export function QuoteImportDialog({
     ).length;
   }, [parsed, decisions]);
 
+  // Le taux belge par défaut : le PDF ne l'imprime pas en clair, seul le
+  // montant de TVA apparaît. On garde 21 % et on le montre.
+  const VAT_RATE = 21;
+
   const totals = useMemo(() => {
     if (!parsed) return { initial: 0, equipment: 0, monthly: 0 };
     const sum = (b: QuoteBlock) =>
@@ -340,14 +344,17 @@ export function QuoteImportDialog({
                     <h3 className="ro-overline text-[11px]">
                       {QUOTE_BLOCK_LABELS[block]}
                     </h3>
-                    <span className="ro-figure text-base">
-                      {formatCurrencyFull(totals[block])}
-                      {block === "monthly" && (
+                    <div className="text-right">
+                      <span className="ro-figure text-base">
+                        {formatCurrencyFull(totals[block])}
                         <span className="ml-1 text-xs font-normal text-muted-foreground">
-                          /mois
+                          HT{block === "monthly" ? " /mois" : ""}
                         </span>
-                      )}
-                    </span>
+                      </span>
+                      <div className="ro-data text-xs text-muted-foreground">
+                        {formatCurrencyFull(totals[block] * (1 + VAT_RATE / 100))} TTC
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-2 overflow-hidden rounded-xl border border-card-border">
@@ -357,7 +364,8 @@ export function QuoteImportDialog({
                           <TableHead>Ligne lue</TableHead>
                           <TableHead className="text-right">Qté</TableHead>
                           <TableHead className="text-right">PU HT</TableHead>
-                          <TableHead className="text-right">Total</TableHead>
+                          <TableHead className="text-right">Total HT</TableHead>
+                          <TableHead className="text-right">TTC</TableHead>
                           <TableHead className="w-[280px]">Référence</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -388,6 +396,9 @@ export function QuoteImportDialog({
                               </TableCell>
                               <TableCell className="ro-data text-right font-bold">
                                 {formatCurrencyFull(parsedLineTotal(line))}
+                              </TableCell>
+                              <TableCell className="ro-data text-right text-muted-foreground">
+                                {formatCurrencyFull(parsedLineTotal(line) * (1 + VAT_RATE / 100))}
                               </TableCell>
                               <TableCell>
                                 <Select

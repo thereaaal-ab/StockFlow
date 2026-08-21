@@ -248,14 +248,17 @@ export function QuoteEditor({ prospect, onOpenChange }: QuoteEditorProps) {
                         {QUOTE_BLOCK_HINTS[block]}
                       </p>
                     </div>
-                    <span className="ro-figure text-lg">
-                      {formatCurrencyFull(blockTotal)}
-                      {block === "monthly" && (
+                    <div className="text-right">
+                      <span className="ro-figure text-lg">
+                        {formatCurrencyFull(blockTotal)}
                         <span className="ml-1 text-xs font-normal text-muted-foreground">
-                          /mois
+                          HT{block === "monthly" ? " /mois" : ""}
                         </span>
-                      )}
-                    </span>
+                      </span>
+                      <div className="ro-data text-xs text-muted-foreground">
+                        {formatCurrencyFull(blockTotal * (1 + vatRate / 100))} TTC
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-3 overflow-hidden rounded-xl border border-card-border">
@@ -267,6 +270,7 @@ export function QuoteEditor({ prospect, onOpenChange }: QuoteEditorProps) {
                           <TableHead className="text-right">PU HT</TableHead>
                           <TableHead className="text-right">Remise</TableHead>
                           <TableHead className="text-right">Total HT</TableHead>
+                          <TableHead className="text-right">Total TTC</TableHead>
                           <TableHead className="w-20" />
                         </TableRow>
                       </TableHeader>
@@ -274,7 +278,7 @@ export function QuoteEditor({ prospect, onOpenChange }: QuoteEditorProps) {
                         {blockLines.length === 0 && (
                           <TableRow>
                             <TableCell
-                              colSpan={6}
+                              colSpan={7}
                               className="text-center text-sm text-muted-foreground"
                             >
                               Aucune ligne
@@ -324,6 +328,9 @@ export function QuoteEditor({ prospect, onOpenChange }: QuoteEditorProps) {
                                 <TableCell className="ro-data text-right font-bold">
                                   {formatCurrencyFull(lineTotal(line))}
                                 </TableCell>
+                                <TableCell className="ro-data text-right text-muted-foreground">
+                                  {formatCurrencyFull(lineTotal(line) * (1 + vatRate / 100))}
+                                </TableCell>
                                 <TableCell>
                                   <div className="flex justify-end gap-1">
                                     {tracked && !isLocked && (
@@ -362,9 +369,10 @@ export function QuoteEditor({ prospect, onOpenChange }: QuoteEditorProps) {
                               {/* Le choix des machines, sous sa ligne. */}
                               {expandedLine === line.id && line.product_id && (
                                 <TableRow>
-                                  <TableCell colSpan={6} className="bg-muted">
+                                  <TableCell colSpan={7} className="bg-muted">
                                     <UnitPicker
                                       productId={line.product_id}
+                                      reserved={line.units}
                                       value={line.unit_ids}
                                       onChange={(ids) =>
                                         reserveUnits({

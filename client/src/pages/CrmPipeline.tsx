@@ -13,6 +13,7 @@ import {
 import { ClientModal } from "@/components/crm/ClientModal";
 import { QuoteEditor } from "@/components/crm/QuoteEditor";
 import { QuoteImportDialog } from "@/components/crm/QuoteImportDialog";
+import { QuoteValidationSheet } from "@/components/crm/QuoteValidationSheet";
 
 const STATUS_LABELS: Record<ClientStatus, string> = {
   prospect: "Prospect",
@@ -37,6 +38,7 @@ export default function CrmPipeline() {
   const [draggedClientId, setDraggedClientId] = useState<string | null>(null);
   const [quoteProspect, setQuoteProspect] = useState<PipelineClient | undefined>(undefined);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [validating, setValidating] = useState<PipelineClient | undefined>(undefined);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<PipelineClient | undefined>(undefined);
 
@@ -51,6 +53,16 @@ export default function CrmPipeline() {
     if (!draggedClientId) return;
     const target = clients.find((client) => client.id === draggedClientId);
     if (!target || target.status === status) return;
+
+    // Passer en « Validé » n'est pas un simple changement de colonne : c'est
+    // le moment où le devis devient un client et où l'on décide quelle
+    // machine part. On ouvre donc l'écran de validation plutôt que de
+    // basculer le statut en silence.
+    if (status === "valide") {
+      setValidating(target);
+      setDraggedClientId(null);
+      return;
+    }
 
     try {
       await updateClient(target.id, { status });
@@ -206,6 +218,12 @@ export default function CrmPipeline() {
       )}
 
       <QuoteImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
+
+      <QuoteValidationSheet
+        prospect={validating ?? null}
+        onOpenChange={(open) => !open && setValidating(undefined)}
+        onValidated={() => setValidating(undefined)}
+      />
 
       <QuoteEditor
         prospect={quoteProspect ?? null}
