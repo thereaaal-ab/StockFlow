@@ -285,8 +285,32 @@ export function ClientHardwarePanel({
   );
 
   const initialPayment = client.starter_pack_price || 0;
-  const equipmentBilled = client.hardware_price || 0;
+
+  /**
+   * Ce que l'équipement revendu a été facturé.
+   *
+   * Calculé depuis les MÊMES lignes que le coût. Le champ `hardware_price`
+   * de la fiche est une saisie libre : le comparer au coût des lignes revient
+   * à soustraire deux sources différentes, et donne une marge inventée.
+   */
+  const equipmentBilled = useMemo(
+    () =>
+      lines
+        .filter(
+          (l) =>
+            (l.type ?? "buy") === "buy" && !serviceProductIds.has(l.productId)
+        )
+        .reduce((s, l) => s + (l.clientPrice || 0) * (l.quantity || 0), 0),
+    [lines, serviceProductIds]
+  );
+
   const equipmentMargin = equipmentBilled - equipmentCost;
+
+  // Quand la fiche porte un prix matériel qui ne correspond pas aux lignes,
+  // on le dit plutôt que de choisir en silence.
+  const declaredHardware = client.hardware_price || 0;
+  const hardwareMismatch =
+    declaredHardware > 0 && Math.abs(declaredHardware - equipmentBilled) > 1;
 
   // Le premier mois encaisse tout : le paiement initial, la marge sur
   // l'équipement, et la première mensualité.
@@ -359,6 +383,14 @@ export function ClientHardwarePanel({
                   −{formatCurrencyFull(equipmentCost)}
                 </span>
               </div>
+              {hardwareMismatch && (
+                <p className="rounded-md bg-[color:var(--ro-feedback-warning-bg)] px-3 py-2 text-[11px] text-[color:var(--ro-feedback-warning-fg)]">
+                  La fiche porte {formatCurrencyFull(declaredHardware)} en prix
+                  matériel, mais les lignes achetées n&apos;en facturent que{" "}
+                  {formatCurrencyFull(equipmentBilled)}. Le calcul ci-dessous
+                  suit les lignes — vérifiez la fiche ou les lignes.
+                </p>
+              )}
               <div className="flex items-baseline justify-between gap-3 border-t border-dashed border-border pt-1.5">
                 <span className="text-[12px] font-bold">
                   {equipmentCost > 0
