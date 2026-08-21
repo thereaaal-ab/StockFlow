@@ -1,25 +1,17 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { PackagePlus, Undo2 } from "lucide-react";
+import { PackagePlus, Undo2, ChevronDown, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrencyFull } from "@/lib/utils";
 import { formatTTC } from "@/lib/vat";
 import { cn } from "@/lib/utils";
-import {
-  useClientUnits,
-  useAssignUnits,
-  UNIT_STATUS_LABELS,
-} from "@/hooks/useHardware";
+import { useClientUnits, useAssignUnits } from "@/hooks/useHardware";
 import { AssignUnitsDialog } from "@/components/AssignUnitsDialog";
-import type { Client } from "@/hooks/useClients";
+import { UnitPicker } from "@/components/UnitPicker";
+import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
+import type { Client, ClientProduct } from "@/hooks/useClients";
+import type { HardwareUnit } from "@/hooks/useHardware";
 
 interface ClientHardwarePanelProps {
   client: Client;
@@ -41,24 +33,211 @@ interface ClientHardwarePanelProps {
  * D'où la présentation en deux temps : le premier mois encaisse tout, les
  * suivants encaissent la mensualité.
  */
+
+/**
+ * Une ligne de matériel du client, dépliable.
+ *
+ * Le rapprochement se fait par référence : les machines affectées au client
+ * pour ce produit comptent contre la quantité vendue. On voit d'un coup
+ * combien il en manque, quelles bornes exactement sont posées, et lesquelles
+ * on peut encore prendre dans le stock.
+ */
+function ClientProductLine({
+  client,
+  line,
+  assigned,
+}: {
+  client: Client;
+  line: ClientProduct;
+  assigned: HardwareUnit[];
+}) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const { assignUnits, isAssigning, releaseUnit, isReleasing } = useAssignUnits();
+
+  const missing = Math.max(0, (line.quantity || 0) - assigned.length);
+  const isLease = line.type === "rent";
+
+  const handleAssign = async () => {
+    if (picked.length === 0) return;
+    try {
+      await assignUnits({
+        unitIds: picked.slice(0, missing),
+        clientId: client.id,
+        // En location la machine reste à nous ; à l'achat elle est vendue.
+        mode: isLease ? "chez_client" : "vendu",
+        salePrice: isLease ? null : line.clientPrice ?? null,
+      });
+      setPicked([]);
+      toast({
+        title: "Matériel attribué",
+        description: `${line.name} · ${picked.length} machine${picked.length > 1 ? "s" : ""} chez ${client.client_name}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Attribution impossible",
+        description: error?.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border bg-card",
+        missing > 0
+          ? "border-[color:var(--ro-feedback-warning-bd)]"
+          : "border-card-border"
+      )}
+    >
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left"
+        onClick={() => setOpen((o) => !o)}
+        data-testid={`line-${line.productId}`}
+      >
+        <ChevronDown
+          className={cn(
+            "size-4 shrink-0 text-muted-foreground transition-transform duration-fast ease-ro",
+            open && "rotate-180"
+          )}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-bold">{line.name}</div>
+          <div className="ro-overline text-[9px]">
+            {isLease ? "location · reste à nous" : "vendu au client"}
+            {line.monthlyFee > 0
+              ? ` · ${formatCurrencyFull(line.monthlyFee)} /mois`
+              : ""}
+          </div>
+        </div>
+        <span
+          className={cn(
+            "ro-data shrink-0 text-sm font-bold",
+            missing > 0
+              ? "text-[color:var(--ro-feedback-warning-fg)]"
+              : "text-mint-600 dark:text-mint-400"
+          )}
+        >
+          {assigned.length}/{line.quantity} attribuée
+          {(line.quantity || 0) > 1 ? "s" : ""}
+        </span>
+      </button>
+
+      {open && (
+        <div className="space-y-4 border-t border-border px-4 py-4">
+          {/* Les bornes déjà posées, nommément, avec ce qu'elles ont coûté. */}
+          {assigned.length > 0 && (
+            <div>
+              <div className="ro-overline text-[9px]">Machines posées</div>
+              <div className="mt-2 space-y-1.5">
+                {assigned.map((u) => (
+                  <div
+                    key={u.id}
+                    className="flex items-center gap-3 rounded-md bg-muted px-3 py-2"
+                  >
+                    <span className="code-pill shrink-0">{u.asset_tag}</span>
+                    <span className="ro-data ml-auto shrink-0 text-sm font-bold">
+                      {u.unit_cost !== undefined
+                        ? formatCurrencyFull(u.unit_cost)
+                        : "—"}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0"
+                      disabled={isReleasing}
+                      title="Reprendre la machine"
+                      onClick={() =>
+                        releaseUnit({ unitId: u.id, clientId: client.id })
+                      }
+                      data-testid={`release-${u.asset_tag}`}
+                    >
+                      <Undo2 />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Ce qu'on peut encore prendre dans le stock, moins cher d'abord. */}
+          {missing > 0 ? (
+            <div className="space-y-3">
+              <UnitPicker
+                productId={line.productId}
+                value={picked}
+                onChange={(ids) => setPicked(ids.slice(0, missing))}
+                disabled={isAssigning}
+              />
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] text-muted-foreground">
+                  {missing} machine{missing > 1 ? "s" : ""} encore à attribuer.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={handleAssign}
+                  disabled={isAssigning || picked.length === 0}
+                  data-testid={`assign-${line.productId}`}
+                >
+                  <Check />
+                  Attribuer {picked.length || ""}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">
+              Toutes les machines de cette ligne sont attribuées.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ClientHardwarePanel({
   client,
   monthlyFee,
 }: ClientHardwarePanelProps) {
-  const { toast } = useToast();
   const [assignOpen, setAssignOpen] = useState(false);
   const { units, costReal } = useClientUnits(client.id);
-  const { releaseUnit, isReleasing } = useAssignUnits();
+  const { products } = useProducts();
+  const { categories } = useCategories();
+
+  /**
+   * Les références de service — création de menu, livraison, starter pack.
+   *
+   * Elles sont vendues dans le même bloc que l'équipement, mais elles ne
+   * s'achètent pas : leur « prix d'achat » au catalogue est un tarif interne,
+   * pas une sortie d'argent. Les compter ferait passer la marge sur
+   * l'équipement en négatif alors qu'on n'a rien déboursé.
+   */
+  const serviceProductIds = useMemo(() => {
+    const serviceCats = new Set(
+      categories
+        .filter((c) => c.name.toLowerCase().startsWith("service"))
+        .map((c) => c.id)
+    );
+    return new Set(
+      products.filter((p) => p.category_id && serviceCats.has(p.category_id)).map((p) => p.id)
+    );
+  }, [products, categories]);
 
   const lines = client.products ?? [];
 
-  /** Ce que l'équipement revendu nous a coûté, ligne par ligne. */
+  /** Ce que l'équipement revendu nous a coûté, hors lignes de service. */
   const equipmentCost = useMemo(
     () =>
       lines
-        .filter((l) => (l.type ?? "buy") === "buy")
+        .filter(
+          (l) =>
+            (l.type ?? "buy") === "buy" && !serviceProductIds.has(l.productId)
+        )
         .reduce((s, l) => s + (l.purchasePrice || 0) * (l.quantity || 0), 0),
-    [lines]
+    [lines, serviceProductIds]
   );
 
   /**
@@ -78,6 +257,29 @@ export function ClientHardwarePanel({
   const hasUnits = units.length > 0;
   const leaseCost = hasUnits ? costReal : leaseCostCatalog;
 
+  /**
+   * Les lignes qui demandent des machines numérotées, avec celles qui leur
+   * sont déjà attribuées. Le rapprochement se fait par référence : une unité
+   * porte son `product_id`, pas le numéro de la ligne du devis.
+   */
+  const trackedLines = useMemo(
+    () =>
+      lines
+        .filter(
+          (l) => products.find((p) => p.id === l.productId)?.tracked_by_unit
+        )
+        .map((l) => ({
+          line: l,
+          assigned: units.filter((u) => u.product_id === l.productId),
+        })),
+    [lines, products, units]
+  );
+
+  const totalMissing = trackedLines.reduce(
+    (s, t) => s + Math.max(0, (t.line.quantity || 0) - t.assigned.length),
+    0
+  );
+
   const initialPayment = client.starter_pack_price || 0;
   const equipmentBilled = client.hardware_price || 0;
   const equipmentMargin = equipmentBilled - equipmentCost;
@@ -95,22 +297,6 @@ export function ClientHardwarePanel({
     d.setMonth(d.getMonth() + monthsToCover);
     return d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
   }, [client.contract_start_date, monthsToCover]);
-
-  const handleRelease = async (unitId: string, tag: string) => {
-    try {
-      await releaseUnit({ unitId, clientId: client.id });
-      toast({
-        title: "Machine reprise",
-        description: `${tag} est de retour en stock.`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Reprise impossible",
-        description: error?.message,
-        variant: "destructive",
-      });
-    }
-  };
 
   return (
     <section className="space-y-4">
@@ -266,62 +452,32 @@ export function ClientHardwarePanel({
         </div>
       </div>
 
-      {/* Les machines, nommément. */}
-      {hasUnits ? (
-        <div className="overflow-hidden rounded-xl border border-card-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>N° inventaire</TableHead>
-                <TableHead className="text-right">Nous a coûté</TableHead>
-                <TableHead className="text-right">Facturé</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {units.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell>
-                    <span className="code-pill">{u.asset_tag}</span>
-                  </TableCell>
-                  <TableCell className="ro-data text-right font-bold">
-                    {u.unit_cost !== undefined
-                      ? formatCurrencyFull(u.unit_cost)
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="ro-data text-right">
-                    {u.sale_price !== null
-                      ? formatCurrencyFull(u.sale_price)
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {UNIT_STATUS_LABELS[u.status]}
-                    {u.deployed_at ? ` · ${u.deployed_at}` : ""}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8"
-                      disabled={isReleasing}
-                      onClick={() => handleRelease(u.id, u.asset_tag)}
-                      title="Reprendre la machine"
-                      data-testid={`button-release-${u.asset_tag}`}
-                    >
-                      <Undo2 />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+      {/* Chaque référence suivie à l'unité, dépliable : on y voit les bornes
+          posées et on choisit les suivantes dans le stock. */}
+      {trackedLines.length > 0 ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="ro-overline text-[11px]">Matériel de ce client</h3>
+            {totalMissing > 0 && (
+              <span className="ro-data text-[11px] font-bold text-[color:var(--ro-feedback-warning-fg)]">
+                {totalMissing} machine{totalMissing > 1 ? "s" : ""} à attribuer
+              </span>
+            )}
+          </div>
+          {trackedLines.map(({ line, assigned }) => (
+            <ClientProductLine
+              key={line.productId}
+              client={client}
+              line={line}
+              assigned={assigned}
+            />
+          ))}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Aucune machine affectée. Le coût du leasing ci-dessus repose sur les
-          prix catalogue — installez du matériel pour connaître le coût réel de
-          ce client.
+          Aucune référence de ce client n&apos;est suivie à l&apos;unité. Activez
+          « Suivi à l&apos;unité » sur la fiche produit dans Hardware Total pour
+          pouvoir attribuer des machines numérotées.
         </p>
       )}
 

@@ -78,8 +78,14 @@ export function ClientDetailsModal({
                       <Euro className="h-4 w-4" />
                       <span>Encaissement initial</span>
                     </div>
+                    {/* Ce que le client verse au démarrage. `installation_costs`
+                        ne convient pas : elle mélange prix payés et prix
+                        facturés selon le type de ligne. */}
                     <p className="text-xl font-bold text-primary">
-                      {formatCurrencyFull(metrics.installation_costs)}
+                      {formatCurrencyFull(
+                        (client.starter_pack_price || 0) +
+                          (client.hardware_price || 0)
+                      )}
                     </p>
                   </div>
 
