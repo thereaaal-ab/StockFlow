@@ -19,6 +19,11 @@ import {
 } from "@/components/ui/select";
 import { useCategories } from "@/hooks/useCategories";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  countClientsHoldingProduct,
+  syncProductCostToClients,
+} from "@/hooks/useClients";
 import type { Product } from "@/hooks/useProducts";
 
 interface EditProductModalProps {
@@ -46,6 +51,15 @@ export function EditProductModal({
     asset_prefix: "",
   });
   const [isSaving, setIsSaving] = useState(false);
+
+  /**
+   * Les fiches clients portent une copie du prix d'achat, figée au jour de
+   * l'installation. Quand ce prix change, on demande s'il s'agit d'une
+   * correction (à propager) ou d'un nouveau tarif (à laisser).
+   */
+  const [affectedClients, setAffectedClients] = useState(0);
+  const [frozenCost, setFrozenCost] = useState<number | null>(null);
+  const [propagate, setPropagate] = useState(false);
   const { categories, isLoading: categoriesLoading } = useCategories();
 
   // Calculate profit and total_value
@@ -81,6 +95,16 @@ export function EditProductModal({
         tracked_by_unit: !!product.tracked_by_unit,
         asset_prefix: product.asset_prefix || "",
       });
+      setPropagate(false);
+      countClientsHoldingProduct(product.id)
+        .then(({ clients, frozenCosts }) => {
+          setAffectedClients(clients);
+          setFrozenCost(frozenCosts.length ? frozenCosts[0] : null);
+        })
+        .catch(() => {
+          setAffectedClients(0);
+          setFrozenCost(null);
+        });
     }
   }, [product, open]);
 
@@ -111,6 +135,14 @@ export function EditProductModal({
         profit: profit,
         total_value: totalValue,
       });
+
+      // Correction d'un prix faux : on répercute sur les fiches qui l'avaient
+      // figé. Seulement si l'utilisateur l'a demandé — un tarif qui change
+      // ne doit pas réécrire le coût des contrats déjà signés.
+      if (propagate && product) {
+        await syncProductCostToClients(product.id, purchasePrice);
+      }
+
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving product:", error);
@@ -254,6 +286,41 @@ export function EditProductModal({
                 Sélectionnez une catégorie existante ou créez-en une dans les paramètres
               </p>
             </div>
+            {/* Le prix d'achat a bougé et des clients portent l'ancien :
+                on demande explicitement s'il faut les corriger. */}
+            {affectedClients > 0 &&
+              frozenCost !== null &&
+              Math.abs(frozenCost - purchasePrice) > 0.01 && (
+                <div className="rounded-md border border-[color:var(--ro-feedback-warning-bd)] bg-[color:var(--ro-feedback-warning-bg)] px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="propagate-cost"
+                      checked={propagate}
+                      onCheckedChange={(c: boolean | "indeterminate") => setPropagate(c === true)}
+                      className="mt-0.5"
+                      data-testid="checkbox-propagate-cost"
+                    />
+                    <div className="min-w-0">
+                      <Label
+                        htmlFor="propagate-cost"
+                        className="cursor-pointer text-sm font-bold text-[color:var(--ro-feedback-warning-fg)]"
+                      >
+                        Corriger aussi les {affectedClients} fiche
+                        {affectedClients > 1 ? "s" : ""} client
+                        {affectedClients > 1 ? "s" : ""}
+                      </Label>
+                      <p className="mt-1 text-xs text-[color:var(--ro-feedback-warning-fg)]">
+                        Elles portent {frozenCost.toFixed(2)} € figés au jour de
+                        l&apos;installation. Cochez si l&apos;ancien prix était
+                        faux ; laissez décoché s&apos;il s&apos;agit d&apos;un
+                        nouveau tarif fournisseur — les contrats passés doivent
+                        alors garder leur coût d&apos;époque.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             {/* Suivi à l'unité : c'est ici qu'on l'active pour les bornes et
                 les POS déjà présents au catalogue. */}
             <div className="rounded-md border border-border bg-muted px-4 py-3">

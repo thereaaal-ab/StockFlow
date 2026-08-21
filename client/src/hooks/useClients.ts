@@ -345,3 +345,64 @@ export function useClients() {
   };
 }
 
+
+// ---------------------------------------------------------------------------
+// Propagation d'une correction de prix d'achat
+// ---------------------------------------------------------------------------
+
+/**
+ * Combien de fiches clients portent ce produit, et à quel coût figé.
+ *
+ * Chaque ligne client mémorise le prix d'achat du jour de l'installation :
+ * corriger le catalogue ne les touche pas, et c'est voulu — sinon changer un
+ * tarif aujourd'hui réécrirait le coût de tous les contrats passés. Mais quand
+ * l'ancien prix était simplement faux, il faut pouvoir le rattraper.
+ */
+export async function countClientsHoldingProduct(
+  productId: string
+): Promise<{ clients: number; frozenCosts: number[] }> {
+  const { data, error } = await supabase.from("clients").select("products");
+  if (error) throw new Error(error.message);
+
+  const frozen: number[] = [];
+  let count = 0;
+  for (const row of data ?? []) {
+    const lines = (row.products ?? []) as ClientProduct[];
+    const hit = lines.filter((l) => l.productId === productId);
+    if (hit.length === 0) continue;
+    count++;
+    for (const l of hit) frozen.push(l.purchasePrice ?? 0);
+  }
+  return { clients: count, frozenCosts: frozen };
+}
+
+/**
+ * Réécrit le prix d'achat figé de ce produit sur toutes les fiches clients.
+ *
+ * À n'appeler que sur demande explicite : c'est une correction d'erreur, pas
+ * une mise à jour de tarif.
+ */
+export async function syncProductCostToClients(
+  productId: string,
+  newPurchasePrice: number
+): Promise<number> {
+  const { data, error } = await supabase.from("clients").select("id, products");
+  if (error) throw new Error(error.message);
+
+  let updated = 0;
+  for (const row of data ?? []) {
+    const lines = (row.products ?? []) as ClientProduct[];
+    if (!lines.some((l) => l.productId === productId)) continue;
+
+    const next = lines.map((l) =>
+      l.productId === productId ? { ...l, purchasePrice: newPurchasePrice } : l
+    );
+    const { error: upErr } = await supabase
+      .from("clients")
+      .update({ products: next })
+      .eq("id", row.id);
+    if (upErr) throw new Error(upErr.message);
+    updated++;
+  }
+  return updated;
+}
