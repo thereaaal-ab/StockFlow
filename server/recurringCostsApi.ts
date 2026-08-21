@@ -31,6 +31,7 @@ function mapRow(row: typeof recurringFinancialEntries.$inferSelect): RecurringFi
     amount,
     description: row.description ?? null,
     is_active: row.is_active,
+    is_resale: !!(row as { is_resale?: boolean | null }).is_resale,
     created_by: row.created_by ?? null,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),

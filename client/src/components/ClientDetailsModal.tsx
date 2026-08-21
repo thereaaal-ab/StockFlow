@@ -19,6 +19,8 @@ interface ClientDetailsModalProps {
   client: Client | null;
 }
 
+import { ClientHardwarePanel } from "@/components/ClientHardwarePanel";
+
 export function ClientDetailsModal({
   open,
   onOpenChange,
@@ -46,7 +48,7 @@ export function ClientDetailsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[760px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
@@ -276,6 +278,15 @@ export function ClientDetailsModal({
               </div>
             </CardContent>
           </Card>
+
+          {/* Le matériel réellement posé chez ce client, et son ROI. */}
+          <ClientHardwarePanel
+            clientId={client.id}
+            clientName={client.client_name}
+            metrics={metrics}
+            monthlyFee={displayMonthlyFee}
+            starterPack={client.starter_pack_price || 0}
+          />
         </div>
       </DialogContent>
     </Dialog>

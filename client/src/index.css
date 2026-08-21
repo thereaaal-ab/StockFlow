@@ -602,3 +602,43 @@
   }
   .ro-reveal { animation: ro-reveal var(--ro-duration-reveal) var(--ro-ease) both; }
 }
+
+/* ==========================================================================
+   Impression — les planches d'étiquettes.
+   Seule la zone marquée `.print-area` part à l'imprimante : le reste de
+   l'application (rail, en-tête, panneau) disparaît.
+   ========================================================================== */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    background: #FFFFFF;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  /* Une étiquette ne doit jamais être coupée entre deux pages. */
+  .print-label {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+}

@@ -16,6 +16,12 @@ export interface Product {
   total_value: number;
   category: string; // Keep for backward compatibility
   category_id?: string; // Foreign key to categories table
+  /** Vrai pour une borne ou un POS (on colle un ID dessus), faux pour un câble. */
+  tracked_by_unit: boolean;
+  /** Préfixe des numéros d'inventaire : BRN -> BRN-0042. */
+  asset_prefix?: string;
+  /** Dernier numéro attribué. Géré par la base, jamais écrit depuis le client. */
+  unit_counter?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -40,6 +46,9 @@ function mapProduct(product: any): Product {
     total_value: parseFloat(product.total_value) || 0,
     category: product.category || "Other", // Keep for backward compatibility
     category_id: product.category_id || undefined,
+    tracked_by_unit: !!product.tracked_by_unit,
+    asset_prefix: product.asset_prefix || undefined,
+    unit_counter: Number(product.unit_counter) || 0,
     created_at: product.created_at,
     updated_at: product.updated_at,
   };
@@ -76,6 +85,8 @@ async function updateProduct(product: Product): Promise<Product> {
       total_value: product.total_value.toString(),
       category: product.category, // Keep for backward compatibility
       category_id: product.category_id || null,
+      tracked_by_unit: product.tracked_by_unit ?? false,
+      asset_prefix: product.asset_prefix || null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", product.id)
@@ -121,6 +132,8 @@ async function createProduct(product: Omit<Product, "id" | "created_at" | "updat
       total_value: totalValue.toString(),
       category: product.category || "Other", // Keep for backward compatibility
       category_id: product.category_id || null,
+      tracked_by_unit: product.tracked_by_unit ?? false,
+      asset_prefix: product.asset_prefix || null,
     })
     .select()
     .single();

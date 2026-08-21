@@ -19,9 +19,19 @@ import {
   OrderStatus,
 } from "@/hooks/useOrders";
 import { PipelineClient } from "@/hooks/usePipelineClients";
+import { useProducts } from "@/hooks/useProducts";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { AlertTriangle } from "lucide-react";
 
 type OrderFormValues = {
   item: string;
+  productId?: string;
   quantity: number;
   totalPrice?: number;
   status: OrderStatus;
@@ -58,8 +68,11 @@ export function OrderModal({
       maximumFractionDigits: 2,
     }).format(value);
 
+  const { products } = useProducts();
+
   const [form, setForm] = useState<OrderFormValues>({
     item: "",
+    productId: "",
     quantity: 1,
     totalPrice: undefined,
     status: "a_commander",
@@ -77,6 +90,7 @@ export function OrderModal({
     if (order) {
       setForm({
         item: order.item,
+        productId: order.productId ?? "",
         quantity: order.quantity,
         totalPrice: order.totalPrice,
         status: order.status,
@@ -92,6 +106,7 @@ export function OrderModal({
 
     setForm({
       item: "",
+      productId: "",
       quantity: 1,
       totalPrice: undefined,
       status: "a_commander",
@@ -129,13 +144,31 @@ export function OrderModal({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="order-item">Produit *</Label>
-              <Input
-                id="order-item"
-                value={form.item}
-                required
-                onChange={(e) => setForm((prev) => ({ ...prev, item: e.target.value }))}
-              />
+              <Label htmlFor="order-product">Référence *</Label>
+              <Select
+                value={form.productId || ""}
+                onValueChange={(value) => {
+                  const product = products.find((p) => p.id === value);
+                  // Le libellé suit la référence : les deux ne peuvent pas
+                  // diverger si on change d'avis.
+                  setForm((prev) => ({
+                    ...prev,
+                    productId: value,
+                    item: product ? product.name : prev.item,
+                  }));
+                }}
+              >
+                <SelectTrigger id="order-product" data-testid="select-order-product">
+                  <SelectValue placeholder="Choisir dans le catalogue" />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.map((product) => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.code} — {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="order-quantity">Quantite *</Label>
@@ -172,12 +205,37 @@ export function OrderModal({
               />
             </div>
             <div className="space-y-2">
-              <Label>Prix unitaire calcule</Label>
-              <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/30 px-3 py-2 text-sm">
-                {computedUnitPrice !== null ? formatCurrency(computedUnitPrice) : "-"}
+              <Label>Coût unitaire déduit</Label>
+              <div className="ro-data flex h-11 w-full items-center rounded-lg border border-input bg-muted px-4 text-sm font-bold">
+                {computedUnitPrice !== null ? formatCurrency(computedUnitPrice) : "—"}
               </div>
             </div>
           </div>
+
+          {/* Ce que le passage en « Reçu » va produire, dit avant. */}
+          {form.productId && computedUnitPrice !== null && form.quantity > 0 && (
+            <p className="text-xs text-muted-foreground">
+              À la réception :{" "}
+              <span className="ro-data font-bold text-foreground">
+                {form.quantity} unité{form.quantity > 1 ? "s" : ""}
+              </span>{" "}
+              à{" "}
+              <span className="ro-data font-bold text-foreground">
+                {formatCurrency(computedUnitPrice)}
+              </span>{" "}
+              entreront en stock.
+            </p>
+          )}
+
+          {!form.productId && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-[color:var(--ro-feedback-warning-bd)] bg-[color:var(--ro-feedback-warning-bg)] px-4 py-3">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[color:var(--ro-feedback-warning-fg)]" />
+              <p className="text-xs text-[color:var(--ro-feedback-warning-fg)]">
+                Sans référence catalogue, cette commande n&apos;alimentera pas le
+                stock au passage en « Reçu ».
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">

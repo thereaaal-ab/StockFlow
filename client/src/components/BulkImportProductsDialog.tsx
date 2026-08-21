@@ -219,6 +219,9 @@ export function BulkImportProductsDialog({ onImportComplete }: BulkImportProduct
           total_value: 0,
           category: product.category || 'Other',
           category_id: finalCategoryId,
+          // Le suivi à l'unité s'active à la main sur la fiche : un import de
+          // masse ne décide pas quelles références méritent une étiquette.
+          tracked_by_unit: false,
         });
         
         results.success++;

@@ -48,6 +48,11 @@ export interface RecurringFinancialEntry {
   amount: number;
   description: string | null;
   is_active: boolean;
+  /**
+   * Achat destiné à la revente (matériel acheté pour un client).
+   * Ce n'est pas une charge fixe : exclu du fond de roulement par défaut.
+   */
+  is_resale: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -63,6 +68,8 @@ export interface RecurringSummary {
    * Often negative when overhead dominates.
    */
   netMonthlyOverhead: number;
+  /** Part des dépenses mensualisées portée par des achats destinés à la revente. */
+  totalMonthlyResale: number;
   /** baseProfit + netMonthlyOverhead, only when baseProfit is provided. */
   profitAfterOverhead?: number;
 }
@@ -108,15 +115,31 @@ export function getMonthlyEquivalent(
 export function computeSummary(
   entries: RecurringFinancialEntry[],
   baseProfit?: number,
+  options?: {
+    /**
+     * Inclure les achats destinés à la revente dans les dépenses.
+     * Faux par défaut : un fond de roulement ne compte que ce qui est fixe,
+     * et une tablette achetée pour un client ne l'est pas.
+     */
+    includeResale?: boolean;
+  },
 ): RecurringSummary {
+  const includeResale = options?.includeResale ?? false;
   const active = entries.filter((e) => e.is_active);
 
   let totalExpenses = 0;
   let totalPositive = 0;
+  let totalResale = 0;
 
   for (const e of active) {
     const monthly = getMonthlyEquivalent(e.amount, e.frequency);
     if (e.type === "expense") {
+      if (e.is_resale) {
+        // Toujours comptabilisé à part, pour pouvoir l'afficher même
+        // lorsqu'il est exclu du total.
+        totalResale += monthly;
+        if (!includeResale) continue;
+      }
       totalExpenses += monthly;
     } else {
       totalPositive += monthly;
@@ -125,6 +148,7 @@ export function computeSummary(
 
   totalExpenses = roundToFraction(totalExpenses, 6);
   totalPositive = roundToFraction(totalPositive, 6);
+  totalResale = roundToFraction(totalResale, 6);
   const netMonthlyOverhead = roundToFraction(
     totalPositive - totalExpenses,
     6,
@@ -134,6 +158,7 @@ export function computeSummary(
     totalMonthlyExpenses: totalExpenses,
     totalMonthlyPositiveAdjustments: totalPositive,
     netMonthlyOverhead,
+    totalMonthlyResale: totalResale,
   };
 
   if (baseProfit !== undefined && Number.isFinite(baseProfit)) {
@@ -157,6 +182,7 @@ export const createRecurringEntryBodySchema = z.object({
     .gt(0, "Amount must be greater than 0"),
   description: z.string().max(2000).optional().nullable(),
   is_active: z.boolean().optional().default(true),
+  is_resale: z.boolean().optional().default(false),
 });
 
 export const updateRecurringEntryBodySchema = z
@@ -168,6 +194,7 @@ export const updateRecurringEntryBodySchema = z
     amount: z.coerce.number().finite().gt(0, "Amount must be greater than 0").optional(),
     description: z.string().max(2000).optional().nullable(),
     is_active: z.boolean().optional(),
+    is_resale: z.boolean().optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, {
     message: "At least one field is required to update",
@@ -190,6 +217,8 @@ export function mapRecurringFinancialRowFromDb(row: {
   amount: unknown;
   description: string | null;
   is_active: boolean;
+  /** Absent tant que la migration 0004 n'est pas passée : on retombe sur false. */
+  is_resale?: boolean | null;
   created_by: string | null;
   created_at: string | Date;
   updated_at: string | Date;
@@ -211,6 +240,7 @@ export function mapRecurringFinancialRowFromDb(row: {
     amount,
     description: row.description ?? null,
     is_active: row.is_active,
+    is_resale: !!row.is_resale,
     created_by: row.created_by ?? null,
     created_at: toIso(row.created_at),
     updated_at: toIso(row.updated_at),

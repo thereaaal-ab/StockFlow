@@ -6,6 +6,7 @@ import {
   BriefcaseBusiness,
   ShoppingCart,
   BarChart3,
+  Wallet,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -63,6 +64,11 @@ const menuItems = [
     title: "Analytics",
     url: "/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Gestion 2A",
+    url: "/gestion",
+    icon: Wallet,
   },
 ];
 

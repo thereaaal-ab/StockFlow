@@ -129,6 +129,38 @@ export function calculateInstallationCosts(
 }
 
 /**
+ * Marge réelle dégagée sur le matériel vendu à un client.
+ *
+ * Ne compte QUE les lignes de type « achat » : un produit loué ne dégage pas
+ * de marge matérielle, son retour est la mensualité.
+ *
+ * Attention à ne pas confondre avec `calculateInstallationCosts`, qui n'est
+ * pas une fonction de coût : pour les lignes achetées, elle retient le prix
+ * facturé au client, pas le prix payé au fournisseur. La soustraire d'un
+ * chiffre d'affaires donnerait un résultat sans signification.
+ */
+export function calculateHardwareMargin(
+  client: { products?: ClientProduct[] },
+  allProducts: Product[] = []
+): number {
+  if (!client.products || client.products.length === 0) return 0;
+
+  return client.products.reduce((margin, line) => {
+    if (line.type === "rent") return margin;
+
+    const catalog = allProducts.find((p) => p.id === line.productId);
+    const cost =
+      line.purchasePrice !== undefined
+        ? line.purchasePrice
+        : catalog?.purchase_price || 0;
+    const billed =
+      line.clientPrice && line.clientPrice > 0 ? line.clientPrice : cost;
+
+    return margin + (billed - cost) * (line.quantity || 0);
+  }, 0);
+}
+
+/**
  * Calculate total investment for a client
  * Investment = ONLY installation costs (what we spent on hardware purchase prices)
  * NOT starter pack or hardware sell price - those are benefits

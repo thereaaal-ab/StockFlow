@@ -33,7 +33,16 @@ const PRIORITY_CLASSNAME: Record<OrderPriority, string> = {
 export default function OrdersPage() {
   const { toast } = useToast();
   const { clients } = usePipelineClients();
-  const { orders, isLoading, createOrder, updateOrder, isCreating, isUpdating } = useOrders();
+  const {
+    orders,
+    isLoading,
+    createOrder,
+    updateOrder,
+    receiveOrder,
+    unreceiveOrder,
+    isCreating,
+    isUpdating,
+  } = useOrders();
 
   const [draggedOrderId, setDraggedOrderId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -68,21 +77,64 @@ export default function OrdersPage() {
       maximumFractionDigits: 2,
     }).format(value);
 
+  /**
+   * Le passage en « Reçu » est le point d'entrée du matériel.
+   *
+   * Il ne se contente pas de changer une colonne : il crée le lot au coût
+   * déduit (total ÷ quantité), numérote les machines et fait monter le stock.
+   * Sortir de « Reçu » annule la réception — refusée par la base si une
+   * machine du lot est déjà partie chez un client.
+   */
   const handleDrop = async (status: OrderStatus) => {
     if (!draggedOrderId) return;
     const target = orders.find((order) => order.id === draggedOrderId);
     if (!target || target.status === status) return;
 
     try {
+      if (status === "recu") {
+        if (!target.productId) {
+          toast({
+            title: "Référence manquante",
+            description:
+              "Reliez cette commande à une référence du catalogue pour qu'elle puisse alimenter le stock.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (!target.totalPrice || target.totalPrice <= 0) {
+          toast({
+            title: "Prix total manquant",
+            description:
+              "Sans prix total, le coût unitaire ne peut pas être calculé.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        await receiveOrder(target.id);
+        const unitCost = target.totalPrice / target.quantity;
+        toast({
+          title: "Commande réceptionnée",
+          description: `${target.quantity} × "${target.item}" en stock à ${formatCurrency(unitCost)} l'unité.`,
+        });
+        return;
+      }
+
+      // On quitte « Reçu » : la réception doit être défaite, sinon le stock
+      // resterait gonflé d'un matériel qu'on dit ne pas avoir reçu.
+      if (target.status === "recu" && target.receivedLotId) {
+        await unreceiveOrder(target.id);
+      }
+
       await updateOrder(target.id, { status });
       toast({
-        title: "Commande mise a jour",
-        description: `"${target.item}" passe en "${STATUS_LABELS[status]}".`,
+        title: "Commande mise à jour",
+        description: `« ${target.item} » passe en « ${STATUS_LABELS[status]} ».`,
       });
     } catch (error: any) {
       toast({
         title: "Erreur",
-        description: error?.message ?? "Impossible de mettre a jour cette commande.",
+        description: error?.message ?? "Impossible de mettre à jour cette commande.",
         variant: "destructive",
       });
     } finally {
@@ -162,7 +214,15 @@ export default function OrdersPage() {
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       </div>
-                      <div className="mt-2 flex items-center gap-2">
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {/* Une commande reçue a réellement alimenté le stock :
+                            on le montre, sinon on ne peut pas distinguer une
+                            carte glissée d'une réception effective. */}
+                        {order.receivedLotId && (
+                          <Badge variant="outline" className="ro-badge-success">
+                            en stock
+                          </Badge>
+                        )}
                         <Badge variant="outline" className={PRIORITY_CLASSNAME[order.priority]}>
                           {order.priority}
                         </Badge>
