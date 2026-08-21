@@ -375,19 +375,37 @@ export function useAcceptQuote() {
       // Les lignes rattachées à une référence deviennent les produits du
       // client. Une ligne du bloc « mensualités » est du leasing : le
       // matériel reste à nous, sa contrepartie est la mensualité.
+      // Le prix d'achat de chaque ligne : le coût RÉEL des machines choisies
+      // quand il y en a, sinon le prix catalogue. Le laisser à zéro rendrait
+      // toute marge fausse — et invisible.
+      const { data: catalog } = await supabase
+        .from("products")
+        .select("id, purchase_price");
+      const catalogCost = new Map<string, number>(
+        (catalog || []).map((p: any) => [p.id, parseFloat(p.purchase_price) || 0])
+      );
+
       const now = new Date().toISOString();
       const clientProducts = lines
         .filter((l) => l.product_id)
-        .map((l) => ({
-          productId: l.product_id!,
-          name: l.description,
-          quantity: l.quantity,
-          monthlyFee: l.block === "monthly" ? lineTotal(l) : 0,
-          type: l.block === "monthly" ? "rent" : "buy",
-          addedAt: now,
-          purchasePrice: 0,
-          clientPrice: l.block === "monthly" ? 0 : lineTotal(l) / l.quantity,
-        }));
+        .map((l) => {
+          const realCost = l.units.reduce((s, u) => s + u.unit_cost, 0);
+          const unitCost =
+            l.units.length > 0
+              ? realCost / l.units.length
+              : catalogCost.get(l.product_id!) ?? 0;
+
+          return {
+            productId: l.product_id!,
+            name: l.description,
+            quantity: l.quantity,
+            monthlyFee: l.block === "monthly" ? lineTotal(l) : 0,
+            type: l.block === "monthly" ? "rent" : "buy",
+            addedAt: now,
+            purchasePrice: unitCost,
+            clientPrice: l.block === "monthly" ? 0 : lineTotal(l) / l.quantity,
+          };
+        });
 
       const totalProductQuantity = clientProducts.reduce(
         (sum, p) => sum + p.quantity,
