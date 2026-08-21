@@ -7,10 +7,13 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Euro, Package, Calendar, CalendarClock, TrendingUp } from "lucide-react";
+import { Users, Euro, Package, Calendar, CalendarClock, TrendingUp, ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { Client } from "@/hooks/useClients";
 import { formatCurrencyFull, calculateProfitableDate } from "@/lib/utils";
 import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
 import { calculateClientMetrics, calculateTotalMonthlyFeeFromProducts } from "@/lib/clientCalculations";
 
 interface ClientDetailsModalProps {
@@ -27,6 +30,27 @@ export function ClientDetailsModal({
   client,
 }: ClientDetailsModalProps) {
   const { products } = useProducts();
+  const { categories } = useCategories();
+  const [showLines, setShowLines] = useState(false);
+
+  /**
+   * Les références de service : leur « prix d'achat » au catalogue est un
+   * tarif de référence, pas une sortie d'argent. On ne l'affiche donc pas
+   * dans la colonne « payé » — sinon le tableau contredirait le calcul de
+   * marge, qui les exclut.
+   */
+  const serviceProductIds = (() => {
+    const serviceCats = new Set(
+      categories
+        .filter((c) => c.name.toLowerCase().startsWith("service"))
+        .map((c) => c.id)
+    );
+    return new Set(
+      products
+        .filter((p) => p.category_id && serviceCats.has(p.category_id))
+        .map((p) => p.id)
+    );
+  })();
 
   if (!client) return null;
 
@@ -101,15 +125,28 @@ export function ClientDetailsModal({
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                  {/* Le compte seul ne dit rien : on peut l'ouvrir pour voir
+                      quelles lignes le composent et à quel prix. */}
+                  <button
+                    type="button"
+                    className="space-y-2 rounded-md text-left transition-colors duration-fast ease-ro hover:bg-muted"
+                    onClick={() => setShowLines((v) => !v)}
+                    data-testid="button-toggle-product-lines"
+                  >
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Package className="h-4 w-4" />
                       <span>Quantité de Produits</span>
+                      <ChevronDown
+                        className={cn(
+                          "h-3.5 w-3.5 transition-transform duration-fast ease-ro",
+                          showLines && "rotate-180"
+                        )}
+                      />
                     </div>
                     <p className="text-xl font-bold">
                       {client.product_quantity}
                     </p>
-                  </div>
+                  </button>
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -123,6 +160,80 @@ export function ClientDetailsModal({
                     </p>
                   </div>
                 </div>
+
+                {/* Les lignes du client, avec ce qu'elles nous coûtent et ce
+                    qu'elles rapportent. Une ligne en location rapporte chaque
+                    mois ; une ligne achetée rapporte une fois. */}
+                {showLines && (
+                  <div className="overflow-hidden rounded-lg border border-border">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="table-head-enterprise">Produit</th>
+                          <th className="table-head-enterprise text-right">Qté</th>
+                          <th className="table-head-enterprise text-right">Payé</th>
+                          <th className="table-head-enterprise text-right">Facturé</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(client.products ?? []).map((line, i) => {
+                          const isLease = line.type === "rent";
+                          const isService = serviceProductIds.has(line.productId);
+                          const billed = isLease
+                            ? line.monthlyFee || 0
+                            : line.clientPrice || 0;
+                          return (
+                            <tr
+                              key={`${line.productId}-${i}`}
+                              className="border-b border-border last:border-b-0"
+                            >
+                              <td className="px-4 py-2.5 align-middle text-sm">
+                                <div className="font-medium">{line.name}</div>
+                                <div className="ro-overline text-[9px]">
+                                  {isService
+                                    ? "service"
+                                    : isLease
+                                      ? "location"
+                                      : "vendu"}
+                                </div>
+                              </td>
+                              <td className="ro-data px-4 py-2.5 text-right align-middle text-sm">
+                                {line.quantity}
+                              </td>
+                              <td className="ro-data px-4 py-2.5 text-right align-middle text-sm text-muted-foreground">
+                                {isService || !line.purchasePrice
+                                  ? "—"
+                                  : formatCurrencyFull(line.purchasePrice)}
+                              </td>
+                              <td className="ro-data px-4 py-2.5 text-right align-middle text-sm font-bold">
+                                {billed > 0 ? formatCurrencyFull(billed) : "—"}
+                                {isLease && billed > 0 && (
+                                  <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                                    /mois
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {(client.products ?? []).length === 0 && (
+                          <tr>
+                            <td
+                              colSpan={4}
+                              className="px-4 py-6 text-center text-sm text-muted-foreground"
+                            >
+                              Aucune ligne enregistrée pour ce client.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                    <p className="border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
+                      Les lignes de service n&apos;ont pas de prix payé : elles ne
+                      s&apos;achètent à personne.
+                    </p>
+                  </div>
+                )}
 
                 <div className="border-t pt-4">
                   <div className="flex items-center justify-between mb-4">
