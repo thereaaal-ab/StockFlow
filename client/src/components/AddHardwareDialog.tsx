@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import {
@@ -32,6 +33,8 @@ export function AddHardwareDialog() {
     sellPrice: "",
     rentPrice: "",
     category_id: "",
+    trackedByUnit: false,
+    assetPrefix: "",
   });
   const [isSaving, setIsSaving] = useState(false);
   const { createProduct } = useProducts();
@@ -55,6 +58,8 @@ export function AddHardwareDialog() {
         total_value: 0, // Will be calculated in the hook
         category: "Other", // Keep for backward compatibility
         category_id: formData.category_id || undefined,
+        tracked_by_unit: formData.trackedByUnit,
+        asset_prefix: formData.assetPrefix.trim().toUpperCase() || undefined,
       });
       setOpen(false);
       setFormData({
@@ -65,6 +70,8 @@ export function AddHardwareDialog() {
         sellPrice: "",
         rentPrice: "",
         category_id: "",
+        trackedByUnit: false,
+        assetPrefix: "",
       });
     } catch (error) {
       console.error("Error creating product:", error);
@@ -197,6 +204,59 @@ export function AddHardwareDialog() {
               <p className="text-xs text-muted-foreground">
                 Sélectionnez une catégorie existante ou créez-en une dans les paramètres
               </p>
+            </div>
+
+            {/* Suivi à l'unité : à activer pour une borne ou un POS, à laisser
+                fermé pour un câble. Étiqueter des multiprises n'a pas de sens. */}
+            <div className="rounded-md border border-border bg-muted px-4 py-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <Label htmlFor="tracked" className="text-sm font-bold">
+                    Suivi à l&apos;unité
+                  </Label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Chaque exemplaire reçoit un numéro d&apos;inventaire à coller
+                    sur la machine, et garde le coût de son lot.
+                  </p>
+                </div>
+                <Switch
+                  id="tracked"
+                  checked={formData.trackedByUnit}
+                  onCheckedChange={(v) =>
+                    setFormData({ ...formData, trackedByUnit: v })
+                  }
+                  data-testid="switch-tracked-by-unit"
+                />
+              </div>
+              {formData.trackedByUnit && (
+                <div className="mt-3 space-y-2">
+                  <Label htmlFor="assetPrefix">Préfixe des étiquettes</Label>
+                  <Input
+                    id="assetPrefix"
+                    maxLength={8}
+                    placeholder={
+                      formData.code
+                        .replace(/[^A-Za-z0-9]/g, "")
+                        .slice(0, 3)
+                        .toUpperCase() || "BRN"
+                    }
+                    value={formData.assetPrefix}
+                    onChange={(e) =>
+                      setFormData({ ...formData, assetPrefix: e.target.value })
+                    }
+                    data-testid="input-asset-prefix"
+                  />
+                  <p className="ro-data text-xs text-muted-foreground">
+                    {(formData.assetPrefix.trim().toUpperCase() ||
+                      formData.code
+                        .replace(/[^A-Za-z0-9]/g, "")
+                        .slice(0, 3)
+                        .toUpperCase() ||
+                      "BRN")}
+                    -0001, -0002, -0003…
+                  </p>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>

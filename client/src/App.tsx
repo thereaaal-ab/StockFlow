@@ -17,6 +17,7 @@ import Stock from "@/pages/Stock";
 import Clients from "@/pages/Clients";
 import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
+import Gestion from "@/pages/Gestion";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 import CrmPipeline from "@/pages/CrmPipeline";
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/crm-pipeline" component={CrmPipeline} />
       <Route path="/orders" component={OrdersPage} />
       <Route path="/analytics" component={Analytics} />
+      <Route path="/gestion" component={Gestion} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>

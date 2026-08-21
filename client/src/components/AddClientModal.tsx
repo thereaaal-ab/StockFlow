@@ -16,6 +16,8 @@ import { useClients, ClientProduct } from "@/hooks/useClients";
 import { useProducts } from "@/hooks/useProducts";
 import { useToast } from "@/hooks/use-toast";
 import { ProductMultiSelect } from "@/components/ProductMultiSelect";
+import { UnitPicker } from "@/components/UnitPicker";
+import { useAssignUnits, useAvailableUnits } from "@/hooks/useHardware";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
@@ -38,6 +40,11 @@ export function AddClientModal() {
   const [clientName, setClientName] = useState("");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [productDetails, setProductDetails] = useState<Record<string, SelectedProduct>>({});
+  // Les machines précises choisies pour chaque référence suivie à l'unité.
+  // Clé : productId. Valeur : identifiants des unités cochées.
+  const [pickedUnits, setPickedUnits] = useState<Record<string, string[]>>({});
+  const { assignUnits } = useAssignUnits();
+  const { available: allAvailableUnits } = useAvailableUnits();
   const [starterPackPrice, setStarterPackPrice] = useState("");
   const [contractStartDate, setContractStartDate] = useState("");
   const [manualTotalSoldAmount, setManualTotalSoldAmount] = useState<string | null>(null);
@@ -210,6 +217,41 @@ export function AddClientModal() {
     });
   };
 
+  /**
+   * Choix des machines pour une référence suivie à l'unité.
+   *
+   * La quantité et le prix d'achat de la ligne ne sont plus des saisies : ils
+   * découlent des machines cochées, avec leur coût de lot réel — pas le prix
+   * catalogue.
+   */
+  const handleUnitsChange = (productId: string, unitIds: string[]) => {
+    setPickedUnits((prev) => ({ ...prev, [productId]: unitIds }));
+
+    const chosen = allAvailableUnits.filter((u) => unitIds.includes(u.id));
+    const costReal = chosen.reduce((sum, u) => sum + u.unit_cost, 0);
+
+    setProductDetails((prev) => {
+      const detail = prev[productId];
+      if (!detail) return prev;
+      return {
+        ...prev,
+        [productId]: {
+          ...detail,
+          quantity: unitIds.length,
+          // Coût moyen des machines réellement choisies : c'est lui qui
+          // alimente le montant d'installation.
+          purchasePrice: unitIds.length > 0 ? costReal / unitIds.length : detail.purchasePrice,
+        },
+      };
+    });
+
+    if (errors[`quantity_${productId}`]) {
+      const newErrors = { ...errors };
+      delete newErrors[`quantity_${productId}`];
+      setErrors(newErrors);
+    }
+  };
+
   // Update product quantity - allow any input, validate on submit
   const handleQuantityChange = (productId: string, value: string) => {
     const detail = productDetails[productId];
@@ -288,6 +330,13 @@ export function AddClientModal() {
     const newDetails = { ...productDetails };
     delete newDetails[productId];
     setProductDetails(newDetails);
+
+    // Retirer une référence libère les machines qu'on avait cochées pour elle.
+    setPickedUnits((prev) => {
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
 
     // Clear errors for this product
     const newErrors = { ...errors };
@@ -385,7 +434,7 @@ export function AddClientModal() {
         : hardwareCostOnly;
 
       // Create client
-      await createClient({
+      const createdClient = await createClient({
         client_name: clientName.trim(),
         product_quantity: totalProductQuantity,
         total_sold_amount: finalInstallationAmount, // Store as total_sold_amount in DB (backward compatibility)
@@ -398,9 +447,27 @@ export function AddClientModal() {
         status: "active",
       });
 
+      // Affecter les machines choisies au client qui vient d'être créé.
+      // La fonction Postgres décrémente elle-même le stock de ces références :
+      // il ne faut surtout pas le décrémenter une deuxième fois plus bas.
+      const trackedProductIds = new Set<string>();
+      for (const [productId, unitIds] of Object.entries(pickedUnits)) {
+        if (unitIds.length === 0) continue;
+        trackedProductIds.add(productId);
+        const detail = productDetails[productId];
+        await assignUnits({
+          unitIds,
+          clientId: createdClient.id,
+          mode: detail?.type === "rent" ? "chez_client" : "vendu",
+          salePrice:
+            detail?.type === "rent" ? null : detail?.sellingPrice || null,
+        });
+      }
+
       // Update stock_actuel for each product
       // When a client buys products (type = "buy"), add quantity to hardware_total
       for (const detail of Object.values(productDetails)) {
+        if (trackedProductIds.has(detail.productId)) continue;
         const product = products.find((p) => p.id === detail.productId);
         if (product) {
           // Check stock availability one more time before updating
@@ -431,6 +498,7 @@ export function AddClientModal() {
       setClientName("");
       setSelectedProductIds([]);
       setProductDetails({});
+      setPickedUnits({});
       setStarterPackPrice("");
       setErrors({});
       
@@ -464,6 +532,7 @@ export function AddClientModal() {
       setIsEditingHardwarePrice(false);
       setSelectedProductIds([]);
       setProductDetails({});
+      setPickedUnits({});
       setStarterPackPrice("");
       setContractStartDate("");
       setErrors({});
@@ -571,21 +640,46 @@ export function AddClientModal() {
                               </Button>
                             </div>
                           </div>
+
+                          {/* Quelles machines exactement. Deux bornes
+                              identiques n'ont pas coûté pareil : c'est ici
+                              qu'on choisit celle à 950 € plutôt que celle à
+                              1000 € quand il faut serrer le prix. */}
+                          {product.tracked_by_unit && (
+                            <UnitPicker
+                              productId={product.id}
+                              value={pickedUnits[product.id] || []}
+                              onChange={(ids) => handleUnitsChange(product.id, ids)}
+                              disabled={isSaving}
+                            />
+                          )}
                           <div className={detail.type === "rent" ? "grid grid-cols-2 gap-3" : (detail.type === "buy" ? "grid grid-cols-2 gap-3" : "space-y-1")}>
                           <div className="space-y-1">
                             <Label htmlFor={`quantity_${product.id}`} className="text-xs">
                               Quantité
                             </Label>
-                            <Input
-                              id={`quantity_${product.id}`}
-                              type="number"
+                            {product.tracked_by_unit ? (
+                              /* La quantité découle des machines cochées :
+                                 la saisir à la main n'aurait plus de sens. */
+                              <Input
+                                id={`quantity_${product.id}`}
+                                value={detail.quantity}
+                                readOnly
+                                disabled
+                                className="ro-data"
+                              />
+                            ) : (
+                              <Input
+                                id={`quantity_${product.id}`}
+                                type="number"
                                 min="0"
-                              value={detail.quantity}
-                              onChange={(e) =>
+                                value={detail.quantity}
+                                onChange={(e) =>
                                   handleQuantityChange(product.id, e.target.value)
-                              }
-                              disabled={isSaving}
-                            />
+                                }
+                                disabled={isSaving}
+                              />
+                            )}
                             {errors[`quantity_${product.id}`] && (
                               <p className="text-xs text-destructive">
                                 {errors[`quantity_${product.id}`]}

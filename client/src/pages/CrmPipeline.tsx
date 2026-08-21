@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import {
   usePipelineClients,
 } from "@/hooks/usePipelineClients";
 import { ClientModal } from "@/components/crm/ClientModal";
+import { QuoteEditor } from "@/components/crm/QuoteEditor";
 
 const STATUS_LABELS: Record<ClientStatus, string> = {
   prospect: "Prospect",
@@ -33,6 +34,7 @@ export default function CrmPipeline() {
     isDeleting,
   } = usePipelineClients();
   const [draggedClientId, setDraggedClientId] = useState<string | null>(null);
+  const [quoteProspect, setQuoteProspect] = useState<PipelineClient | undefined>(undefined);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<PipelineClient | undefined>(undefined);
 
@@ -137,6 +139,18 @@ export default function CrmPipeline() {
                         ) : null}
                       </div>
                       <div className="flex items-center gap-1">
+                        {/* Le devis : ce qu'il paie et quelles machines on lui
+                            donne. C'est le point de départ du client. */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Devis"
+                          onClick={() => setQuoteProspect(client)}
+                          data-testid={`button-quote-${client.id}`}
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -180,6 +194,11 @@ export default function CrmPipeline() {
           ))}
         </div>
       )}
+
+      <QuoteEditor
+        prospect={quoteProspect ?? null}
+        onOpenChange={(open) => !open && setQuoteProspect(undefined)}
+      />
 
       <ClientModal
         open={isCreateOpen}

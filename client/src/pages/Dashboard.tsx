@@ -1,6 +1,6 @@
 import { StatCard } from "@/components/StatCard";
 import { InventoryChart } from "@/components/InventoryChart";
-import { Users, Euro, Inbox } from "lucide-react";
+import { Users, Euro, Inbox, Wallet } from "lucide-react";
 import { formatCurrencyCompact } from "@/lib/utils";
 import {
   Table,
@@ -13,11 +13,23 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useClients } from "@/hooks/useClients";
 import { useCommissions } from "@/hooks/useCommissions";
+import { useProducts } from "@/hooks/useProducts";
+import { useRecurringCosts } from "@/hooks/useRecurringCosts";
+import { computeSummary } from "@shared/recurringCosts";
+import { calculateHardwareMargin } from "@/lib/clientCalculations";
 import { useMemo } from "react";
 
 export default function Dashboard() {
   const { clients, isLoading: clientsLoading } = useClients();
   const { totalCommissions, isLoading: commissionsLoading } = useCommissions();
+  const { products } = useProducts();
+  const { entries: recurringEntries } = useRecurringCosts();
+
+  /** Les clients résiliés ne rapportent plus rien : ils sortent des totaux. */
+  const activeClients = useMemo(
+    () => clients.filter((c) => (c.status || "active") === "active"),
+    [clients]
+  );
 
   const clientData = useMemo(() => {
     return clients.map((client) => ({
@@ -26,10 +38,13 @@ export default function Dashboard() {
     }));
   }, [clients]);
 
+  /** Le récurrent : ce qui retombe chaque mois, sans les encaissements uniques. */
   const totalMonthlyRevenue = useMemo(() => {
-    return clients.reduce((sum, client) => sum + (client.monthly_fee || 0), 0);
-  }, [clients]);
+    return activeClients.reduce((sum, client) => sum + (client.monthly_fee || 0), 0);
+  }, [activeClients]);
 
+  // Les deux totaux qui suivent sont des CUMULS depuis le début, pas des
+  // montants mensuels : un starter pack ne s'encaisse qu'une fois.
   const totalStarterPackRevenue = useMemo(() => {
     return clients.reduce((sum, client) => sum + (client.starter_pack_price || 0), 0);
   }, [clients]);
@@ -38,9 +53,27 @@ export default function Dashboard() {
     return clients.reduce((sum, client) => sum + (client.hardware_price || 0), 0);
   }, [clients]);
 
-  const activeClientsCount = useMemo(() => {
-    return clients.filter((client) => (client.status || "active") === "active").length;
-  }, [clients]);
+  /**
+   * Le gain réel sur le matériel vendu : prix facturé moins prix payé, ligne
+   * par ligne, et uniquement sur les lignes achetées. Le matériel loué n'entre
+   * pas ici — son retour est la mensualité.
+   */
+  const hardwareMargin = useMemo(
+    () =>
+      clients.reduce(
+        (sum, client) => sum + calculateHardwareMargin(client, products),
+        0
+      ),
+    [clients, products]
+  );
+
+  /** Les charges fixes du mois, hors achats destinés à la revente. */
+  const monthlyFixedCosts = useMemo(
+    () => computeSummary(recurringEntries).totalMonthlyExpenses,
+    [recurringEntries]
+  );
+
+  const activeClientsCount = activeClients.length;
 
   const recentMovements: Array<{
     date: string;
@@ -61,53 +94,100 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard
-          title="Revenu Mensuel Total"
-          value={clientsLoading ? "..." : formatCurrencyCompact(totalMonthlyRevenue)}
-          icon={Euro}
-          accent="indigo"
-          animatedNumber={clientsLoading ? undefined : totalMonthlyRevenue}
-          formatAnimated={formatCurrencyCompact}
-          testId="card-monthly-revenue"
-        />
-        <StatCard
-          title="Revenu Starter Pack"
-          value={clientsLoading ? "..." : formatCurrencyCompact(totalStarterPackRevenue)}
-          icon={Euro}
-          accent="emerald"
-          animatedNumber={clientsLoading ? undefined : totalStarterPackRevenue}
-          formatAnimated={formatCurrencyCompact}
-          testId="card-starter-pack-revenue"
-        />
-        <StatCard
-          title="Revenu Vente Materiel"
-          value={clientsLoading ? "..." : formatCurrencyCompact(totalHardwareSalesRevenue)}
-          icon={Euro}
-          accent="amber"
-          animatedNumber={clientsLoading ? undefined : totalHardwareSalesRevenue}
-          formatAnimated={formatCurrencyCompact}
-          testId="card-hardware-sales-revenue"
-        />
-        <StatCard
-          title="Commissions Total"
-          value={commissionsLoading ? "..." : formatCurrencyCompact(totalCommissions)}
-          icon={Euro}
-          accent="rose"
-          animatedNumber={commissionsLoading ? undefined : totalCommissions}
-          formatAnimated={formatCurrencyCompact}
-          testId="card-total-commissions"
-        />
-        <StatCard
-          title="Clients Actifs"
-          value={clientsLoading ? "..." : activeClientsCount.toString()}
-          icon={Users}
-          accent="cyan"
-          animatedNumber={clientsLoading ? undefined : activeClientsCount}
-          formatAnimated={(n) => Math.round(n).toString()}
-          testId="card-active-clients"
-        />
-      </div>
+      {/* Ce qui retombe chaque mois. Ces montants-là sont comparables entre
+          eux : ce sont tous des mensualités. */}
+      <section className="space-y-3">
+        <h2 className="ro-overline text-[11px]">Chaque mois</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            title="Mensualités clients"
+            value={clientsLoading ? "..." : formatCurrencyCompact(totalMonthlyRevenue)}
+            icon={Euro}
+            accent="emerald"
+            animatedNumber={clientsLoading ? undefined : totalMonthlyRevenue}
+            formatAnimated={formatCurrencyCompact}
+            testId="card-monthly-revenue"
+          />
+          <StatCard
+            title="Coûts fixes"
+            value={formatCurrencyCompact(monthlyFixedCosts)}
+            icon={Wallet}
+            accent="rose"
+            animatedNumber={monthlyFixedCosts}
+            formatAnimated={formatCurrencyCompact}
+            testId="card-monthly-fixed-costs"
+          />
+          <StatCard
+            title="Net mensuel"
+            value={
+              clientsLoading
+                ? "..."
+                : formatCurrencyCompact(totalMonthlyRevenue - monthlyFixedCosts)
+            }
+            icon={Euro}
+            accent={totalMonthlyRevenue - monthlyFixedCosts >= 0 ? "emerald" : "rose"}
+            animatedNumber={
+              clientsLoading ? undefined : totalMonthlyRevenue - monthlyFixedCosts
+            }
+            formatAnimated={formatCurrencyCompact}
+            testId="card-monthly-net"
+          />
+          <StatCard
+            title="Clients actifs"
+            value={clientsLoading ? "..." : activeClientsCount.toString()}
+            icon={Users}
+            accent="indigo"
+            animatedNumber={clientsLoading ? undefined : activeClientsCount}
+            formatAnimated={(n) => Math.round(n).toString()}
+            testId="card-active-clients"
+          />
+        </div>
+      </section>
+
+      {/* Les encaissements uniques, cumulés depuis le début. Les mélanger aux
+          mensualités ci-dessus laisserait croire qu'ils rentrent tous les
+          mois : ils sont donc dans leur propre rangée, et l'étiquette le dit. */}
+      <section className="space-y-3">
+        <h2 className="ro-overline text-[11px]">Depuis le début · encaissements uniques</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            title="Starter packs"
+            value={clientsLoading ? "..." : formatCurrencyCompact(totalStarterPackRevenue)}
+            icon={Euro}
+            accent="amber"
+            animatedNumber={clientsLoading ? undefined : totalStarterPackRevenue}
+            formatAnimated={formatCurrencyCompact}
+            testId="card-starter-pack-revenue"
+          />
+          <StatCard
+            title="Vente matériel"
+            value={clientsLoading ? "..." : formatCurrencyCompact(totalHardwareSalesRevenue)}
+            icon={Euro}
+            accent="slate"
+            animatedNumber={clientsLoading ? undefined : totalHardwareSalesRevenue}
+            formatAnimated={formatCurrencyCompact}
+            testId="card-hardware-sales-revenue"
+          />
+          <StatCard
+            title="Gain sur matériel"
+            value={clientsLoading ? "..." : formatCurrencyCompact(hardwareMargin)}
+            icon={Euro}
+            accent={hardwareMargin >= 0 ? "emerald" : "rose"}
+            animatedNumber={clientsLoading ? undefined : hardwareMargin}
+            formatAnimated={formatCurrencyCompact}
+            testId="card-hardware-margin"
+          />
+          <StatCard
+            title="Commissions"
+            value={commissionsLoading ? "..." : formatCurrencyCompact(totalCommissions)}
+            icon={Euro}
+            accent="cyan"
+            animatedNumber={commissionsLoading ? undefined : totalCommissions}
+            formatAnimated={formatCurrencyCompact}
+            testId="card-total-commissions"
+          />
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <InventoryChart title="Valeur par Client" data={clientData} />

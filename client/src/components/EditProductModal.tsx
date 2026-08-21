@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCategories } from "@/hooks/useCategories";
+import { Switch } from "@/components/ui/switch";
 import type { Product } from "@/hooks/useProducts";
 
 interface EditProductModalProps {
@@ -41,6 +42,8 @@ export function EditProductModal({
     selling_price: "",
     rent_price: "",
     category_id: "",
+    tracked_by_unit: false,
+    asset_prefix: "",
   });
   const [isSaving, setIsSaving] = useState(false);
   const { categories, isLoading: categoriesLoading } = useCategories();
@@ -51,6 +54,9 @@ export function EditProductModal({
   const quantity = parseFloat(formData.quantity) || 0;
   const profit = sellingPrice - purchasePrice;
   const totalValue = quantity * purchasePrice;
+  const defaultPrefix =
+    (formData.code || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase() ||
+    "BRN";
 
   // Preload product data when modal opens
   useEffect(() => {
@@ -72,6 +78,8 @@ export function EditProductModal({
             ? product.rent_price
             : product.rent_price?.toString() || "0",
         category_id: product.category_id || "",
+        tracked_by_unit: !!product.tracked_by_unit,
+        asset_prefix: product.asset_prefix || "",
       });
     }
   }, [product, open]);
@@ -98,6 +106,8 @@ export function EditProductModal({
         rent_price: parseFloat(formData.rent_price) || 0,
         category: product.category || "Other", // Keep for backward compatibility
         category_id: formData.category_id || undefined,
+        tracked_by_unit: formData.tracked_by_unit,
+        asset_prefix: formData.asset_prefix.trim().toUpperCase() || undefined,
         profit: profit,
         total_value: totalValue,
       });
@@ -244,6 +254,49 @@ export function EditProductModal({
                 Sélectionnez une catégorie existante ou créez-en une dans les paramètres
               </p>
             </div>
+            {/* Suivi à l'unité : c'est ici qu'on l'active pour les bornes et
+                les POS déjà présents au catalogue. */}
+            <div className="rounded-md border border-border bg-muted px-4 py-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <Label htmlFor="edit-tracked" className="text-sm font-bold">
+                    Suivi à l&apos;unité
+                  </Label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Chaque exemplaire reçu recevra un numéro d&apos;inventaire et
+                    gardera le coût de son lot.
+                  </p>
+                </div>
+                <Switch
+                  id="edit-tracked"
+                  checked={formData.tracked_by_unit}
+                  onCheckedChange={(v) =>
+                    setFormData({ ...formData, tracked_by_unit: v })
+                  }
+                  data-testid="switch-edit-tracked"
+                />
+              </div>
+              {formData.tracked_by_unit && (
+                <div className="mt-3 space-y-2">
+                  <Label htmlFor="edit-asset-prefix">Préfixe des étiquettes</Label>
+                  <Input
+                    id="edit-asset-prefix"
+                    maxLength={8}
+                    placeholder={defaultPrefix}
+                    value={formData.asset_prefix}
+                    onChange={(e) =>
+                      setFormData({ ...formData, asset_prefix: e.target.value })
+                    }
+                    data-testid="input-edit-asset-prefix"
+                  />
+                  <p className="ro-data text-xs text-muted-foreground">
+                    {(formData.asset_prefix.trim().toUpperCase() || defaultPrefix)}-0001,
+                    -0002, -0003…
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4 pt-2 border-t">
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Profit (calculé)</Label>

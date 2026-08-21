@@ -16,8 +16,13 @@ export type OrderPriority = (typeof ORDER_PRIORITIES)[number];
 export type CurrentOrder = {
   id: string;
   item: string;
+  /** Référence catalogue commandée. Sans elle, la réception ne sait pas quel stock alimenter. */
+  productId?: string;
   quantity: number;
+  /** Le prix TOTAL payé. Le coût unitaire s'en déduit : total ÷ quantité. */
   totalPrice?: number;
+  /** Non nul = commande déjà réceptionnée. Garde-fou contre le double stock. */
+  receivedLotId?: string;
   status: OrderStatus;
   priority: OrderPriority;
   requestedBy?: string;
@@ -36,6 +41,7 @@ function mapRow(row: Record<string, any>): CurrentOrder {
   return {
     id: row.id,
     item: row.item,
+    productId: row.product_id ?? undefined,
     quantity: Number(row.quantity),
     totalPrice: row.total_price !== null && row.total_price !== undefined
       ? Number(row.total_price)
@@ -47,6 +53,7 @@ function mapRow(row: Record<string, any>): CurrentOrder {
     linkedClientId: row.linked_client_id ?? undefined,
     dueDate: row.due_date ?? undefined,
     notes: row.notes ?? undefined,
+    receivedLotId: row.received_lot_id ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -69,6 +76,7 @@ async function createOrder(payload: OrderPayload): Promise<CurrentOrder> {
     .from("orders")
     .insert({
       item: payload.item,
+      product_id: payload.productId ?? null,
       quantity: payload.quantity,
       total_price: payload.totalPrice ?? null,
       status: payload.status,
@@ -95,6 +103,7 @@ async function updateOrder(
 ): Promise<CurrentOrder> {
   const updateData: Record<string, any> = {};
   if (payload.item !== undefined) updateData.item = payload.item;
+  if (payload.productId !== undefined) updateData.product_id = payload.productId || null;
   if (payload.quantity !== undefined) updateData.quantity = payload.quantity;
   if (payload.totalPrice !== undefined) {
     updateData.total_price = payload.totalPrice ?? null;
@@ -125,6 +134,30 @@ async function updateOrder(
   return mapRow(data);
 }
 
+/**
+ * Réception d'une commande.
+ *
+ * C'est le point d'entrée du matériel : le lot est créé avec son coût
+ * unitaire (total ÷ quantité), les machines sont numérotées, le stock monte.
+ * La fonction Postgres est idempotente — re-glisser une carte dans « Reçu »
+ * ne crée pas un second lot.
+ */
+async function receiveOrder(orderId: string) {
+  const { data, error } = await supabase.rpc("receive_order", {
+    p_order_id: orderId,
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/** Annule une réception. Refusée si une machine du lot a déjà quitté le stock. */
+async function unreceiveOrder(orderId: string) {
+  const { error } = await supabase.rpc("unreceive_order", {
+    p_order_id: orderId,
+  });
+  if (error) throw new Error(error.message);
+}
+
 export function useOrders() {
   const queryClient = useQueryClient();
 
@@ -142,6 +175,27 @@ export function useOrders() {
     mutationFn: ({ id, payload }: { id: string; payload: Partial<OrderPayload> }) =>
       updateOrder(id, payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
+
+  // La réception touche les lots, les unités, le stock et la vue consolidée :
+  // tout doit être rafraîchi ensemble.
+  const invalidateHardware = () => {
+    queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: ["hardware_summary"] });
+    queryClient.invalidateQueries({ queryKey: ["hardware_lots"] });
+    queryClient.invalidateQueries({ queryKey: ["hardware_units"] });
+    queryClient.invalidateQueries({ queryKey: ["available_hardware_units"] });
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+  };
+
+  const receiveMutation = useMutation({
+    mutationFn: receiveOrder,
+    onSuccess: invalidateHardware,
+  });
+
+  const unreceiveMutation = useMutation({
+    mutationFn: unreceiveOrder,
+    onSuccess: invalidateHardware,
   });
 
   useEffect(() => {
@@ -168,7 +222,10 @@ export function useOrders() {
     createOrder: createMutation.mutateAsync,
     updateOrder: (id: string, payload: Partial<OrderPayload>) =>
       updateMutation.mutateAsync({ id, payload }),
+    receiveOrder: receiveMutation.mutateAsync,
+    unreceiveOrder: unreceiveMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
+    isReceiving: receiveMutation.isPending,
   };
 }

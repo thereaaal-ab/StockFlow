@@ -102,6 +102,7 @@ function emptyForm(): {
   amount: string;
   description: string;
   is_active: boolean;
+  is_resale: boolean;
 } {
   return {
     name: "",
@@ -112,6 +113,7 @@ function emptyForm(): {
     amount: "",
     description: "",
     is_active: true,
+    is_resale: false,
   };
 }
 
@@ -188,6 +190,7 @@ export function RecurringCostsTab({
       amount: String(entry.amount),
       description: entry.description ?? "",
       is_active: entry.is_active,
+      is_resale: entry.is_resale,
     });
     setDialogOpen(true);
   };
@@ -204,6 +207,7 @@ export function RecurringCostsTab({
       amount: amountNum,
       description: form.description.trim() || null,
       is_active: form.is_active,
+      is_resale: form.is_resale,
     };
 
     const parsed = createRecurringEntryBodySchema.safeParse(payload);
@@ -453,9 +457,16 @@ export function RecurringCostsTab({
                           {formatCurrencyFull(monthly)}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={row.is_active ? "default" : "outline"}>
-                            {row.is_active ? "Actif" : "Inactif"}
-                          </Badge>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge variant={row.is_active ? "default" : "outline"}>
+                              {row.is_active ? "Actif" : "Inactif"}
+                            </Badge>
+                            {row.is_resale && (
+                              <Badge variant="outline" className="ro-badge-warning">
+                                revente
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-right">
                           {canMutate ? (
@@ -645,6 +656,28 @@ export function RecurringCostsTab({
               <Label htmlFor="rc-active" className="font-normal cursor-pointer">
                 Actif
               </Label>
+            </div>
+
+            {/* Un achat pour revente est une facture, mais pas une charge
+                fixe : le marquer permet de le sortir du fond de roulement
+                sans supprimer la ligne. */}
+            <div className="rounded-md border border-border bg-muted px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="rc-resale"
+                  checked={form.is_resale}
+                  onCheckedChange={(c) =>
+                    setForm((f) => ({ ...f, is_resale: c === true }))
+                  }
+                />
+                <Label htmlFor="rc-resale" className="cursor-pointer font-bold">
+                  Achat destiné à la revente
+                </Label>
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Du matériel acheté pour un client, pas une charge fixe. Exclu
+                du fond de roulement par défaut.
+              </p>
             </div>
           </div>
 
