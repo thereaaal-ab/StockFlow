@@ -9,7 +9,9 @@ import {
 import {
   calculateClientMetrics,
   calculateTotalMonthlyFeeFromProducts,
+  calculateClientEconomics,
 } from "@/lib/clientCalculations";
+import { useCategories } from "@/hooks/useCategories";
 import { Client } from "@/hooks/useClients";
 import { useProducts } from "@/hooks/useProducts";
 import {
@@ -41,8 +43,22 @@ export function ClientCard({
 }: ClientCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { products } = useProducts();
+  const { categories } = useCategories();
+
+  // Les références de service n'ont ni coût d'achat ni investissement.
+  const serviceProductIds = new Set(
+    products
+      .filter((p) => {
+        const cat = categories.find((c) => c.id === p.category_id);
+        return !!cat && cat.name.toLowerCase().startsWith("service");
+      })
+      .map((p) => p.id)
+  );
 
   const metrics = calculateClientMetrics(client, products);
+  // Même calcul que la fiche : la pastille de la carte et le détail ne
+  // doivent jamais dire l'inverse l'un de l'autre.
+  const eco = calculateClientEconomics(client, { serviceProductIds });
   const calculatedMonthlyFee = calculateTotalMonthlyFeeFromProducts(client);
   const displayMonthlyFee =
     client.monthly_fee && client.monthly_fee > 0
@@ -66,10 +82,10 @@ export function ClientCard({
           <span
             className={cn(
               "ro-badge shrink-0 py-1",
-              metrics.is_profitable ? "ro-badge-success" : "ro-badge-warning"
+              eco.toCover === 0 ? "ro-badge-success" : "ro-badge-warning"
             )}
           >
-            {metrics.is_profitable ? "Rentable" : "À couvrir"}
+            {eco.toCover === 0 ? "Rentable" : "À couvrir"}
           </span>
         </div>
       </CardHeader>

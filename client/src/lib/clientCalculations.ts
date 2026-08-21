@@ -419,3 +419,103 @@ export function calculateClientMetrics(
     profitability_date: profitabilityDate,
   };
 }
+
+/**
+ * L'économie d'un client, telle qu'elle se lit vraiment.
+ *
+ * Une seule implémentation, partagée par la fiche et son panneau : deux
+ * calculs concurrents finissent toujours par diverger, et c'est ce qui
+ * affichait une date de rentabilité en contradiction avec la phrase juste
+ * en dessous.
+ *
+ * Les trois flux ne se comportent pas pareil :
+ *  · le paiement initial n'a rien en face — c'est de la marge ;
+ *  · l'équipement revendu est neutre, seule la différence compte ;
+ *  · le matériel loué est le seul investissement, il reste à nous.
+ */
+export interface ClientEconomics {
+  initialPayment: number;
+  equipmentBilled: number;
+  equipmentCost: number;
+  equipmentMargin: number;
+  /** Coût du matériel loué : réel si des machines sont affectées, sinon catalogue. */
+  leaseCost: number;
+  leaseCostIsReal: boolean;
+  monthlyFee: number;
+  /** Initial + marge équipement + première mensualité. */
+  firstMonth: number;
+  /** Ce qu'il reste à couvrir une fois le premier mois encaissé. */
+  toCover: number;
+  monthsToCover: number | null;
+  /** Date à laquelle l'investissement est couvert, si elle est calculable. */
+  breakEvenDate: Date | null;
+}
+
+export function calculateClientEconomics(
+  client: {
+    products?: ClientProduct[];
+    starter_pack_price?: number;
+    monthly_fee?: number;
+    contract_start_date?: string;
+  },
+  options: {
+    /** Identifiants des références de service : ni achetées, ni investies. */
+    serviceProductIds?: Set<string>;
+    /** Coût réel des machines affectées, quand il y en a. */
+    realLeaseCost?: number;
+    /** Mensualité effective, si elle diffère du champ du client. */
+    monthlyFee?: number;
+  } = {}
+): ClientEconomics {
+  const lines = client.products ?? [];
+  const services = options.serviceProductIds ?? new Set<string>();
+  const monthlyFee = options.monthlyFee ?? client.monthly_fee ?? 0;
+
+  const bought = lines.filter(
+    (l) => (l.type ?? "buy") === "buy" && !services.has(l.productId)
+  );
+  const equipmentBilled = bought.reduce(
+    (s, l) => s + (l.clientPrice || 0) * (l.quantity || 0),
+    0
+  );
+  const equipmentCost = bought.reduce(
+    (s, l) => s + (l.purchasePrice || 0) * (l.quantity || 0),
+    0
+  );
+
+  const leaseCostCatalog = lines
+    .filter((l) => l.type === "rent" && !services.has(l.productId))
+    .reduce((s, l) => s + (l.purchasePrice || 0) * (l.quantity || 0), 0);
+
+  const leaseCostIsReal =
+    options.realLeaseCost !== undefined && options.realLeaseCost > 0;
+  const leaseCost = leaseCostIsReal ? options.realLeaseCost! : leaseCostCatalog;
+
+  const initialPayment = client.starter_pack_price || 0;
+  const equipmentMargin = equipmentBilled - equipmentCost;
+  const firstMonth = initialPayment + equipmentMargin + monthlyFee;
+
+  const toCover = Math.max(0, leaseCost - firstMonth);
+  const monthsToCover = monthlyFee > 0 ? Math.ceil(toCover / monthlyFee) : null;
+
+  let breakEvenDate: Date | null = null;
+  if (client.contract_start_date && monthsToCover !== null) {
+    const d = new Date(client.contract_start_date);
+    d.setMonth(d.getMonth() + monthsToCover);
+    breakEvenDate = d;
+  }
+
+  return {
+    initialPayment,
+    equipmentBilled,
+    equipmentCost,
+    equipmentMargin,
+    leaseCost,
+    leaseCostIsReal,
+    monthlyFee,
+    firstMonth,
+    toCover,
+    monthsToCover,
+    breakEvenDate,
+  };
+}

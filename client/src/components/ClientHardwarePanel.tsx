@@ -10,6 +10,7 @@ import { AssignUnitsDialog } from "@/components/AssignUnitsDialog";
 import { UnitPicker } from "@/components/UnitPicker";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
+import { calculateClientEconomics } from "@/lib/clientCalculations";
 import type { Client, ClientProduct } from "@/hooks/useClients";
 import type { HardwareUnit } from "@/hooks/useHardware";
 
@@ -230,36 +231,44 @@ export function ClientHardwarePanel({
 
   const lines = client.products ?? [];
 
-  /** Ce que l'équipement revendu nous a coûté, hors lignes de service. */
-  const equipmentCost = useMemo(
-    () =>
-      lines
-        .filter(
-          (l) =>
-            (l.type ?? "buy") === "buy" && !serviceProductIds.has(l.productId)
-        )
-        .reduce((s, l) => s + (l.purchasePrice || 0) * (l.quantity || 0), 0),
-    [lines, serviceProductIds]
-  );
-
-  /**
-   * Ce que le matériel en leasing nous a coûté.
-   *
-   * Le coût réel des machines affectées prime ; à défaut on retombe sur les
-   * prix catalogue des lignes en location, en le disant.
-   */
-  const leaseCostCatalog = useMemo(
-    () =>
-      lines
-        .filter(
-          (l) => l.type === "rent" && !serviceProductIds.has(l.productId)
-        )
-        .reduce((s, l) => s + (l.purchasePrice || 0) * (l.quantity || 0), 0),
-    [lines, serviceProductIds]
-  );
-
   const hasUnits = units.length > 0;
-  const leaseCost = hasUnits ? costReal : leaseCostCatalog;
+
+  // Une seule implémentation du calcul, partagée avec la fiche : deux
+  // versions concurrentes finissent toujours par se contredire.
+  const eco = useMemo(
+    () =>
+      calculateClientEconomics(client, {
+        serviceProductIds,
+        realLeaseCost: hasUnits ? costReal : undefined,
+        monthlyFee,
+      }),
+    [client, serviceProductIds, hasUnits, costReal, monthlyFee]
+  );
+
+  const {
+    initialPayment,
+    equipmentBilled,
+    equipmentCost,
+    equipmentMargin,
+    leaseCost,
+    firstMonth,
+    toCover,
+    monthsToCover,
+    breakEvenDate,
+  } = eco;
+
+  const breakEven = breakEvenDate
+    ? breakEvenDate.toLocaleDateString("fr-FR", {
+        month: "long",
+        year: "numeric",
+      })
+    : null;
+
+  // Quand la fiche porte un prix matériel qui ne correspond pas aux lignes,
+  // on le dit plutôt que de choisir en silence.
+  const declaredHardware = client.hardware_price || 0;
+  const hardwareMismatch =
+    declaredHardware > 0 && Math.abs(declaredHardware - equipmentBilled) > 1;
 
   /**
    * Les lignes qui demandent des machines numérotées, avec celles qui leur
@@ -283,48 +292,6 @@ export function ClientHardwarePanel({
     (s, t) => s + Math.max(0, (t.line.quantity || 0) - t.assigned.length),
     0
   );
-
-  const initialPayment = client.starter_pack_price || 0;
-
-  /**
-   * Ce que l'équipement revendu a été facturé.
-   *
-   * Calculé depuis les MÊMES lignes que le coût. Le champ `hardware_price`
-   * de la fiche est une saisie libre : le comparer au coût des lignes revient
-   * à soustraire deux sources différentes, et donne une marge inventée.
-   */
-  const equipmentBilled = useMemo(
-    () =>
-      lines
-        .filter(
-          (l) =>
-            (l.type ?? "buy") === "buy" && !serviceProductIds.has(l.productId)
-        )
-        .reduce((s, l) => s + (l.clientPrice || 0) * (l.quantity || 0), 0),
-    [lines, serviceProductIds]
-  );
-
-  const equipmentMargin = equipmentBilled - equipmentCost;
-
-  // Quand la fiche porte un prix matériel qui ne correspond pas aux lignes,
-  // on le dit plutôt que de choisir en silence.
-  const declaredHardware = client.hardware_price || 0;
-  const hardwareMismatch =
-    declaredHardware > 0 && Math.abs(declaredHardware - equipmentBilled) > 1;
-
-  // Le premier mois encaisse tout : le paiement initial, la marge sur
-  // l'équipement, et la première mensualité.
-  const firstMonth = initialPayment + equipmentMargin + monthlyFee;
-  const toCover = Math.max(0, leaseCost - firstMonth);
-  const monthsToCover = monthlyFee > 0 ? Math.ceil(toCover / monthlyFee) : null;
-
-  /** La date à laquelle l'investissement est couvert. */
-  const breakEven = useMemo(() => {
-    if (!client.contract_start_date || monthsToCover === null) return null;
-    const d = new Date(client.contract_start_date);
-    d.setMonth(d.getMonth() + monthsToCover);
-    return d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
-  }, [client.contract_start_date, monthsToCover]);
 
   return (
     <section className="space-y-4">

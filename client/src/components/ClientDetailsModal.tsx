@@ -11,10 +11,14 @@ import { Users, Euro, Package, Calendar, CalendarClock, TrendingUp, ChevronDown 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Client } from "@/hooks/useClients";
-import { formatCurrencyFull, calculateProfitableDate } from "@/lib/utils";
+import { formatCurrencyFull } from "@/lib/utils";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
-import { calculateClientMetrics, calculateTotalMonthlyFeeFromProducts } from "@/lib/clientCalculations";
+import {
+  calculateClientMetrics,
+  calculateTotalMonthlyFeeFromProducts,
+  calculateClientEconomics,
+} from "@/lib/clientCalculations";
 
 interface ClientDetailsModalProps {
   open: boolean;
@@ -52,6 +56,7 @@ export function ClientDetailsModal({
     );
   })();
 
+
   if (!client) return null;
 
   const product = client.product_id
@@ -69,6 +74,12 @@ export function ClientDetailsModal({
   const displayMonthlyFee = client.monthly_fee && client.monthly_fee > 0 
     ? client.monthly_fee 
     : calculatedMonthlyFee;
+  // Le même calcul que le panneau plus bas : afficher deux dates de
+  // rentabilité qui se contredisent est pire que n'en afficher aucune.
+  const eco = calculateClientEconomics(client, {
+    serviceProductIds,
+    monthlyFee: displayMonthlyFee,
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -154,9 +165,16 @@ export function ClientDetailsModal({
                       <span>Date de Rentabilité</span>
                     </div>
                     <p className="text-xl font-bold text-primary">
-                      {metrics.profitability_date || 
-                        calculateProfitableDate(client.contract_start_date, client.months_left) || 
-                        `${client.months_left} ${client.months_left === 1 ? "mois" : "mois"}`}
+                      {eco.toCover === 0
+                        ? "Dès le premier mois"
+                        : eco.breakEvenDate
+                          ? eco.breakEvenDate.toLocaleDateString("fr-FR", {
+                              month: "long",
+                              year: "numeric",
+                            })
+                          : eco.monthsToCover !== null
+                            ? `${eco.monthsToCover} mois`
+                            : "—"}
                     </p>
                   </div>
                 </div>
@@ -242,10 +260,15 @@ export function ClientDetailsModal({
                       <span>Statut d'Investissement</span>
                     </div>
                     <Badge
-                      variant={metrics.is_profitable ? "default" : "destructive"}
-                      className={metrics.is_profitable ? "bg-green-500 hover:bg-green-600" : ""}
+                      variant="outline"
+                      className={
+                        eco.toCover === 0 ? "ro-badge-success" : "ro-badge-warning"
+                      }
                     >
-                      {metrics.is_profitable ? "Profitable" : "Still covering investment"}
+                      {/* Même source que la date juste au-dessus : un badge
+                          qui contredit la date qu'il accompagne est pire
+                          qu'aucun badge. */}
+                      {eco.toCover === 0 ? "Rentable" : "À couvrir"}
                     </Badge>
                   </div>
                   {client.contract_start_date && (
