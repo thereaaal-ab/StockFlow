@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Check, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrencyFull } from "@/lib/utils";
@@ -70,14 +71,35 @@ export function QuoteValidationSheet({
 
   const missing = hardwareLines.filter((l) => l.unit_ids.length < l.quantity);
 
-  /** Ce que les machines choisies nous coûtent réellement. */
+  /**
+   * Ce qu'une ligne nous coûte : le coût réel des machines choisies, et le
+   * prix catalogue pour celles qui manquent encore.
+   *
+   * Sans ce repli, l'écran afficherait zéro tant qu'aucun lot n'est
+   * réceptionné — et ne servirait à rien au moment où l'on décide. Le badge
+   * dit d'où vient le chiffre.
+   */
+  const lineCost = useMemo(() => {
+    const catalog = new Map(products.map((p) => [p.id, p.purchase_price || 0]));
+    return (l: QuoteLine) => {
+      const real = l.units.reduce((s, u) => s + u.unit_cost, 0);
+      const missing = Math.max(0, (l.quantity || 0) - l.units.length);
+      const estimated = l.product_id
+        ? missing * (catalog.get(l.product_id) ?? 0)
+        : 0;
+      return { real, estimated, total: real + estimated, missing };
+    };
+  }, [products]);
+
   const costReal = useMemo(
-    () =>
-      lines.reduce(
-        (s, l) => s + l.units.reduce((t, u) => t + u.unit_cost, 0),
-        0
-      ),
-    [lines]
+    () => lines.reduce((s, l) => s + lineCost(l).total, 0),
+    [lines, lineCost]
+  );
+
+  /** Vrai dès qu'une partie du chiffre repose sur le prix catalogue. */
+  const costIsEstimated = useMemo(
+    () => lines.some((l) => lineCost(l).estimated > 0),
+    [lines, lineCost]
   );
 
   // Le matériel du bloc « mensualités » reste à nous : son retour est la
@@ -86,8 +108,8 @@ export function QuoteValidationSheet({
     () =>
       lines
         .filter((l) => l.block === "monthly")
-        .reduce((s, l) => s + l.units.reduce((t, u) => t + u.unit_cost, 0), 0),
-    [lines]
+        .reduce((s, l) => s + lineCost(l).total, 0),
+    [lines, lineCost]
   );
 
   // Le retour anticipé doit venir APRÈS tous les hooks : React compte les
@@ -166,6 +188,15 @@ export function QuoteValidationSheet({
                 <div className="ro-figure mt-1 text-lg">
                   {formatCurrencyFull(costReal)}
                 </div>
+                {costIsEstimated && (
+                  <Badge
+                    variant="outline"
+                    className="ro-badge-warning mt-1.5"
+                    data-testid="badge-estimated-cost"
+                  >
+                    estimation
+                  </Badge>
+                )}
               </div>
               <div className="rounded-md bg-muted px-3 py-3">
                 <div className="ro-overline text-[9px]">Marge revente</div>
@@ -187,8 +218,8 @@ export function QuoteValidationSheet({
             <div className="mt-3 rounded-xl border border-card-border bg-card px-5 py-4">
               {costReal === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Aucune machine choisie pour l&apos;instant : le coût réel de
-                  cette installation est encore inconnu.
+                  Aucun coût connu : ces références n&apos;ont ni machine
+                  choisie, ni prix d&apos;achat au catalogue.
                 </p>
               ) : toCover === 0 ? (
                 <p className="text-sm">
@@ -215,6 +246,13 @@ export function QuoteValidationSheet({
                     </>
                   )}
                   .
+                  {costIsEstimated && (
+                    <>
+                      {" "}
+                      Calcul basé sur le prix catalogue tant que les machines
+                      ne sont pas choisies.
+                    </>
+                  )}
                 </p>
               )}
             </div>
@@ -266,6 +304,15 @@ export function QuoteValidationSheet({
                           <div className="ro-data text-xs text-muted-foreground">
                             facturé {formatCurrencyFull(lineTotal(line))}
                             {line.block === "monthly" ? " /mois" : ""}
+                          </div>
+                          {/* Ce que la ligne coûte, et d'où vient le chiffre. */}
+                          <div className="ro-data text-xs text-muted-foreground">
+                            coûte {formatCurrencyFull(lineCost(line).total)}
+                            {lineCost(line).estimated > 0 && (
+                              <span className="ml-1 text-[color:var(--ro-feedback-warning-fg)]">
+                                · estimé
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
