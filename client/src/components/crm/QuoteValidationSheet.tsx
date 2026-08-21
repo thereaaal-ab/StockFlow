@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useProducts } from "@/hooks/useProducts";
 import { useAvailableUnits } from "@/hooks/useHardware";
 import { UnitPicker } from "@/components/UnitPicker";
+import { MonthPicker } from "@/components/MonthPicker";
 import {
   useQuote,
   useAcceptQuote,
@@ -304,18 +305,10 @@ export function QuoteValidationSheet({
 
             <div className="mt-6 grid max-w-xs gap-2">
               <Label htmlFor="start-date">Mois de démarrage</Label>
-              <Input
+              <MonthPicker
                 id="start-date"
-                type="month"
-                value={startDate.slice(0, 7)}
-                onChange={(e) =>
-                  setStartDate(
-                    e.target.value
-                      ? `${e.target.value}-01`
-                      : new Date().toISOString().slice(0, 10)
-                  )
-                }
-                data-testid="input-contract-month"
+                value={startDate}
+                onChange={setStartDate}
               />
               <p className="text-xs text-muted-foreground">
                 Reculez-le si le contrat tourne déjà : c&apos;est de ce mois que

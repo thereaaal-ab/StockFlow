@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MonthPicker } from "@/components/MonthPicker";
 import {
   Select,
   SelectContent,
@@ -871,17 +872,11 @@ export function EditClientModal({
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit_contract_start_date">Mois de démarrage</Label>
-              <Input
+              <MonthPicker
                 id="edit_contract_start_date"
-                type="month"
-                value={contractStartDate ? contractStartDate.slice(0, 7) : ""}
-                onChange={(e) =>
-                  setContractStartDate(
-                    e.target.value ? `${e.target.value}-01` : ""
-                  )
-                }
+                value={contractStartDate}
+                onChange={setContractStartDate}
                 disabled={isSaving}
-                data-testid="input-edit-contract-start-date"
               />
               <p className="text-xs text-muted-foreground">
                 C&apos;est de ce mois que partent les mensualités encaissées et

@@ -17,6 +17,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useToast } from "@/hooks/use-toast";
 import { ProductMultiSelect } from "@/components/ProductMultiSelect";
 import { UnitPicker } from "@/components/UnitPicker";
+import { MonthPicker } from "@/components/MonthPicker";
 import { useAssignUnits, useAvailableUnits } from "@/hooks/useHardware";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -580,17 +581,11 @@ export function AddClientModal() {
                 compte zéro mois écoulé sur un contrat qui tourne depuis un an. */}
             <div className="space-y-2">
               <Label htmlFor="contract_start_date">Mois de démarrage</Label>
-              <Input
+              <MonthPicker
                 id="contract_start_date"
-                type="month"
-                value={contractStartDate ? contractStartDate.slice(0, 7) : ""}
-                onChange={(e) =>
-                  setContractStartDate(
-                    e.target.value ? `${e.target.value}-01` : ""
-                  )
-                }
+                value={contractStartDate}
+                onChange={setContractStartDate}
                 disabled={isSaving}
-                data-testid="input-contract-start-date"
               />
               <p className="text-xs text-muted-foreground">
                 Reculez-le pour un client déjà en place : c&apos;est de ce mois
