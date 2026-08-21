@@ -6,6 +6,7 @@ import { useRecurringCosts } from "@/hooks/useRecurringCosts";
 import { useClients } from "@/hooks/useClients";
 import { computeSummary } from "@shared/recurringCosts";
 import { formatCurrencyFull } from "@/lib/utils";
+import { formatTTC } from "@/lib/vat";
 import { cn } from "@/lib/utils";
 
 /**
@@ -83,20 +84,24 @@ export default function Gestion() {
       {/* Les quatre chiffres du mois. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-card-border bg-card p-5 shadow-card">
-          <div className="ro-overline text-[10px]">Coûts fixes</div>
+          <div className="ro-overline text-[10px]">Coûts fixes HT</div>
           <div className="ro-figure mt-2 text-2xl text-status-error">
             −{loading ? "…" : formatCurrencyFull(fixedCosts)}
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">par mois</p>
+          {/* Le TVAC est ce qui sort du compte en banque ; le HT est ce que
+              la charge coûte vraiment, TVA récupérée. */}
+          <p className="ro-data mt-1 text-[11px] text-muted-foreground">
+            {loading ? "…" : formatTTC(fixedCosts)} · par mois
+          </p>
         </div>
 
         <div className="rounded-xl border border-card-border bg-card p-5 shadow-card">
-          <div className="ro-overline text-[10px]">Mensualités clients</div>
+          <div className="ro-overline text-[10px]">Mensualités clients HT</div>
           <div className="ro-figure mt-2 text-2xl text-status-success">
             +{loading ? "…" : formatCurrencyFull(monthlyRecurring)}
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            récurrent, clients actifs
+          <p className="ro-data mt-1 text-[11px] text-muted-foreground">
+            {loading ? "…" : formatTTC(monthlyRecurring)} · encaissé
           </p>
         </div>
 
@@ -117,7 +122,7 @@ export default function Gestion() {
             net >= 0 ? "border-mint-500" : "border-[#E5484D]"
           )}
         >
-          <div className="ro-overline text-[10px]">Net mensuel</div>
+          <div className="ro-overline text-[10px]">Net mensuel HT</div>
           <div
             className={cn(
               "ro-figure mt-2 text-2xl",

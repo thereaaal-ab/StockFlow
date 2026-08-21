@@ -2,6 +2,7 @@ import { StatCard } from "@/components/StatCard";
 import { InventoryChart } from "@/components/InventoryChart";
 import { Users, Euro, Inbox, Wallet } from "lucide-react";
 import { formatCurrencyCompact } from "@/lib/utils";
+import { formatTTCCompact } from "@/lib/vat";
 import {
   Table,
   TableBody,
@@ -100,25 +101,27 @@ export default function Dashboard() {
         <h2 className="ro-overline text-[11px]">Chaque mois</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
-            title="Mensualités clients"
+            title="Mensualités clients HT"
             value={clientsLoading ? "..." : formatCurrencyCompact(totalMonthlyRevenue)}
             icon={Euro}
             accent="emerald"
             animatedNumber={clientsLoading ? undefined : totalMonthlyRevenue}
             formatAnimated={formatCurrencyCompact}
+            secondary={formatTTCCompact(totalMonthlyRevenue)}
             testId="card-monthly-revenue"
           />
           <StatCard
-            title="Coûts fixes"
+            title="Coûts fixes HT"
             value={formatCurrencyCompact(monthlyFixedCosts)}
             icon={Wallet}
             accent="rose"
             animatedNumber={monthlyFixedCosts}
             formatAnimated={formatCurrencyCompact}
+            secondary={formatTTCCompact(monthlyFixedCosts)}
             testId="card-monthly-fixed-costs"
           />
           <StatCard
-            title="Net mensuel"
+            title="Net mensuel HT"
             value={
               clientsLoading
                 ? "..."
@@ -151,21 +154,23 @@ export default function Dashboard() {
         <h2 className="ro-overline text-[11px]">Depuis le début · encaissements uniques</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
-            title="Starter packs"
+            title="Starter packs HT"
             value={clientsLoading ? "..." : formatCurrencyCompact(totalStarterPackRevenue)}
             icon={Euro}
             accent="amber"
             animatedNumber={clientsLoading ? undefined : totalStarterPackRevenue}
             formatAnimated={formatCurrencyCompact}
+            secondary={formatTTCCompact(totalStarterPackRevenue)}
             testId="card-starter-pack-revenue"
           />
           <StatCard
-            title="Vente matériel"
+            title="Vente matériel HT"
             value={clientsLoading ? "..." : formatCurrencyCompact(totalHardwareSalesRevenue)}
             icon={Euro}
             accent="slate"
             animatedNumber={clientsLoading ? undefined : totalHardwareSalesRevenue}
             formatAnimated={formatCurrencyCompact}
+            secondary={formatTTCCompact(totalHardwareSalesRevenue)}
             testId="card-hardware-sales-revenue"
           />
           <StatCard

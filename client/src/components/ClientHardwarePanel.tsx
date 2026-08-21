@@ -11,6 +11,7 @@ import {
 import { PackagePlus, Undo2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrencyFull } from "@/lib/utils";
+import { formatTTC } from "@/lib/vat";
 import { cn } from "@/lib/utils";
 import {
   useClientUnits,
@@ -105,11 +106,14 @@ export function ClientHardwarePanel({
             )}
           </div>
           <div>
-            <div className="ro-overline text-[9px]">One-shot</div>
+            <div className="ro-overline text-[9px]">One-shot HT</div>
             <div className="ro-figure mt-1 text-xl">
               {formatCurrencyFull(oneShot)}
             </div>
             <div className="ro-data mt-1 text-[10px] text-muted-foreground">
+              {formatTTC(oneShot)}
+            </div>
+            <div className="ro-data mt-0.5 text-[10px] text-muted-foreground">
               {formatCurrencyFull(starterPack)} pack ·{" "}
               {formatCurrencyFull(hardwareRevenue)} matériel
             </div>
@@ -132,9 +136,12 @@ export function ClientHardwarePanel({
             )}
           </div>
           <div>
-            <div className="ro-overline text-[9px]">Mensualité</div>
+            <div className="ro-overline text-[9px]">Mensualité HT</div>
             <div className="ro-figure mt-1 text-xl">
               {formatCurrencyFull(monthlyFee)}
+            </div>
+            <div className="ro-data mt-1 text-[10px] text-muted-foreground">
+              {formatTTC(monthlyFee)}
             </div>
           </div>
         </div>

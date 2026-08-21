@@ -35,6 +35,11 @@ export interface StatCardProps {
   animatedNumber?: number;
   /** Format animated numeric value for display */
   formatAnimated?: (n: number) => string;
+  /**
+   * Mention sous le chiffre : le TVAC à côté du HT, une unité, une période.
+   * Jamais une seconde donnée à comparer — juste une précision de lecture.
+   */
+  secondary?: string;
 }
 
 function useAnimatedNumber(
@@ -76,6 +81,7 @@ export function StatCard({
   accent = "slate",
   animatedNumber,
   formatAnimated,
+  secondary,
 }: StatCardProps) {
   const isLoading = value === "...";
   const useAnimation =
@@ -121,6 +127,11 @@ export function StatCard({
         >
           {displayValue}
         </div>
+        {secondary && (
+          <div className="ro-data mt-1.5 text-[11px] text-muted-foreground">
+            {secondary}
+          </div>
+        )}
         {trend && (
           <div className="mt-3 flex items-center gap-1.5">
             {trend.isPositive ? (
