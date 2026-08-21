@@ -210,10 +210,12 @@ export function ClientHardwarePanel({
   /**
    * Les références de service — création de menu, livraison, starter pack.
    *
-   * Elles sont vendues dans le même bloc que l'équipement, mais elles ne
-   * s'achètent pas : leur « prix d'achat » au catalogue est un tarif interne,
-   * pas une sortie d'argent. Les compter ferait passer la marge sur
-   * l'équipement en négatif alors qu'on n'a rien déboursé.
+   * Elles ne s'achètent à personne : leur « prix d'achat » au catalogue est
+   * un tarif de référence, pas une sortie d'argent. Les compter gonflerait
+   * l'investissement et écraserait la marge.
+   *
+   * La règle vaut pour les DEUX blocs : une licence facturée au mois n'est
+   * pas plus un investissement qu'une création de menu n'est un achat.
    */
   const serviceProductIds = useMemo(() => {
     const serviceCats = new Set(
@@ -249,9 +251,11 @@ export function ClientHardwarePanel({
   const leaseCostCatalog = useMemo(
     () =>
       lines
-        .filter((l) => l.type === "rent")
+        .filter(
+          (l) => l.type === "rent" && !serviceProductIds.has(l.productId)
+        )
         .reduce((s, l) => s + (l.purchasePrice || 0) * (l.quantity || 0), 0),
-    [lines]
+    [lines, serviceProductIds]
   );
 
   const hasUnits = units.length > 0;
@@ -384,6 +388,7 @@ export function ClientHardwarePanel({
                 {hasUnits
                   ? `${units.length} machine${units.length > 1 ? "s" : ""} — elles restent à nous`
                   : "Prix catalogue — aucune machine affectée pour l'instant"}
+                {" · "}licences exclues, elles ne s&apos;achètent pas
               </div>
             </div>
             <div className="ro-figure shrink-0 text-lg text-status-error">
