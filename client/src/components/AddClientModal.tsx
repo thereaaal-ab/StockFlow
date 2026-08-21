@@ -46,7 +46,9 @@ export function AddClientModal() {
   const { assignUnits } = useAssignUnits();
   const { available: allAvailableUnits } = useAvailableUnits();
   const [starterPackPrice, setStarterPackPrice] = useState("");
-  const [contractStartDate, setContractStartDate] = useState("");
+  const [contractStartDate, setContractStartDate] = useState(
+    () => `${new Date().toISOString().slice(0, 7)}-01`
+  );
   const [manualTotalSoldAmount, setManualTotalSoldAmount] = useState<string | null>(null);
   const [manualTotalMonthlyFee, setManualTotalMonthlyFee] = useState<string | null>(null);
   const [manualHardwarePrice, setManualHardwarePrice] = useState<string | null>(null);
@@ -534,7 +536,7 @@ export function AddClientModal() {
       setProductDetails({});
       setPickedUnits({});
       setStarterPackPrice("");
-      setContractStartDate("");
+      setContractStartDate(`${new Date().toISOString().slice(0, 7)}-01`);
       setErrors({});
     }
   };
@@ -571,6 +573,30 @@ export function AddClientModal() {
               {errors.client_name && (
                 <p className="text-sm text-destructive">{errors.client_name}</p>
               )}
+            </div>
+
+            {/* Le mois de démarrage pilote tout le calcul de rentabilité.
+                Pour un client repris, il faut pouvoir le reculer — sinon on
+                compte zéro mois écoulé sur un contrat qui tourne depuis un an. */}
+            <div className="space-y-2">
+              <Label htmlFor="contract_start_date">Mois de démarrage</Label>
+              <Input
+                id="contract_start_date"
+                type="month"
+                value={contractStartDate ? contractStartDate.slice(0, 7) : ""}
+                onChange={(e) =>
+                  setContractStartDate(
+                    e.target.value ? `${e.target.value}-01` : ""
+                  )
+                }
+                disabled={isSaving}
+                data-testid="input-contract-start-date"
+              />
+              <p className="text-xs text-muted-foreground">
+                Reculez-le pour un client déjà en place : c&apos;est de ce mois
+                que partent les mensualités encaissées et la date de
+                rentabilité.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -844,18 +870,6 @@ export function AddClientModal() {
                   <p className="text-sm text-destructive">{errors.hardware_price}</p>
                 )}
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="contract_start_date">Date de Début du Contrat</Label>
-              <Input
-                id="contract_start_date"
-                type="date"
-                value={contractStartDate}
-                onChange={(e) => setContractStartDate(e.target.value)}
-                disabled={isSaving}
-                data-testid="input-contract-start-date"
-              />
             </div>
 
             <div className="space-y-2">

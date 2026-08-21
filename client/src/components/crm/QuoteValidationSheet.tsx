@@ -303,13 +303,24 @@ export function QuoteValidationSheet({
             )}
 
             <div className="mt-6 grid max-w-xs gap-2">
-              <Label htmlFor="start-date">Début du contrat</Label>
+              <Label htmlFor="start-date">Mois de démarrage</Label>
               <Input
                 id="start-date"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                type="month"
+                value={startDate.slice(0, 7)}
+                onChange={(e) =>
+                  setStartDate(
+                    e.target.value
+                      ? `${e.target.value}-01`
+                      : new Date().toISOString().slice(0, 10)
+                  )
+                }
+                data-testid="input-contract-month"
               />
+              <p className="text-xs text-muted-foreground">
+                Reculez-le si le contrat tourne déjà : c&apos;est de ce mois que
+                partent les mensualités encaissées.
+              </p>
             </div>
 
             <div className="mt-6 mb-10 flex justify-end">

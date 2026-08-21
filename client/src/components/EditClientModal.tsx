@@ -869,15 +869,24 @@ export function EditClientModal({
                 <p className="text-sm text-destructive">{errors.months_left}</p>
               )}
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="edit_contract_start_date">Date de Début du Contrat</Label>
+              <Label htmlFor="edit_contract_start_date">Mois de démarrage</Label>
               <Input
                 id="edit_contract_start_date"
-                type="date"
-                value={contractStartDate}
-                onChange={(e) => setContractStartDate(e.target.value)}
+                type="month"
+                value={contractStartDate ? contractStartDate.slice(0, 7) : ""}
+                onChange={(e) =>
+                  setContractStartDate(
+                    e.target.value ? `${e.target.value}-01` : ""
+                  )
+                }
+                disabled={isSaving}
+                data-testid="input-edit-contract-start-date"
               />
+              <p className="text-xs text-muted-foreground">
+                C&apos;est de ce mois que partent les mensualités encaissées et
+                la date de rentabilité.
+              </p>
             </div>
 
             <div className="space-y-2">
