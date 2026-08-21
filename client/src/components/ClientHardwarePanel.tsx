@@ -334,28 +334,48 @@ export function ClientHardwarePanel({
             </div>
           </div>
 
-          <div className="flex items-baseline justify-between gap-3 border-t border-dashed border-border pt-3">
-            <div className="min-w-0">
-              <div className="text-sm font-bold">Marge sur l&apos;équipement</div>
-              <div className="ro-data text-[11px] text-muted-foreground">
-                facturé {formatCurrencyFull(equipmentBilled)} · payé{" "}
-                {formatCurrencyFull(equipmentCost)}
-              </div>
+          {/* L'équipement n'est pas un investissement qui reste : on le sort
+              puis on le récupère par la facture. Montrer les deux mouvements
+              plutôt que le seul net, sinon on ne voit pas que l'achat est
+              remboursé. */}
+          <div className="border-t border-dashed border-border pt-3">
+            <div className="text-sm font-bold">
+              Équipement — acheté pour lui, revendu
             </div>
-            <div className="shrink-0 text-right">
-              <div
-                className={cn(
-                  "ro-figure text-lg",
-                  equipmentMargin >= 0
-                    ? "text-status-success"
-                    : "text-status-error"
-                )}
-              >
-                {equipmentMargin >= 0 ? "+" : ""}
-                {formatCurrencyFull(equipmentMargin)}
+            <div className="mt-2 space-y-1.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[12px] text-muted-foreground">
+                  Facturé au client
+                </span>
+                <span className="ro-data text-sm font-bold text-status-success">
+                  +{formatCurrencyFull(equipmentBilled)}
+                </span>
               </div>
-              <div className="text-[10px] text-muted-foreground">
-                acheté pour lui, revendu
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[12px] text-muted-foreground">
+                  Payé au fournisseur
+                </span>
+                <span className="ro-data text-sm font-bold text-status-error">
+                  −{formatCurrencyFull(equipmentCost)}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between gap-3 border-t border-dashed border-border pt-1.5">
+                <span className="text-[12px] font-bold">
+                  {equipmentCost > 0
+                    ? "L'achat est remboursé, il reste"
+                    : "Gain"}
+                </span>
+                <span
+                  className={cn(
+                    "ro-figure text-lg",
+                    equipmentMargin >= 0
+                      ? "text-status-success"
+                      : "text-status-error"
+                  )}
+                >
+                  {equipmentMargin >= 0 ? "+" : ""}
+                  {formatCurrencyFull(equipmentMargin)}
+                </span>
               </div>
             </div>
           </div>
@@ -404,8 +424,12 @@ export function ClientHardwarePanel({
             <div className="ro-figure mt-1 text-xl text-status-success">
               +{formatCurrencyFull(firstMonth)}
             </div>
-            <div className="mt-1 text-[10px] text-muted-foreground">
-              initial + marge + 1 mensualité
+            <div className="ro-data mt-1 text-[10px] text-muted-foreground">
+              {formatCurrencyFull(initialPayment)} + {formatCurrencyFull(equipmentMargin)} +{" "}
+              {formatCurrencyFull(monthlyFee)}
+            </div>
+            <div className="mt-0.5 text-[10px] text-muted-foreground">
+              initial + gain équipement + 1 mensualité
             </div>
           </div>
           <div className="rounded-md bg-muted px-4 py-3">
